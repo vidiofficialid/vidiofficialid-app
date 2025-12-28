@@ -7,9 +7,10 @@ import { prisma } from "./prisma"
 export const { handlers, signIn, signOut, auth } = NextAuth({
   adapter: PrismaAdapter(prisma),
   session: { strategy: "jwt" },
+  trustHost: true,
   pages: {
     signIn: "/login",
-    // signUp: "/register",
+    error: "/login",
   },
   providers: [
     Credentials({
@@ -19,32 +20,37 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         password: { label: "Password", type: "password" }
       },
       async authorize(credentials) {
-        if (!credentials?.email || !credentials?.password) {
-          throw new Error("Email dan password harus diisi")
-        }
+        try {
+          if (!credentials?.email || !credentials?.password) {
+            return null
+          }
 
-        const user = await prisma.user.findUnique({
-          where: { email: credentials.email as string }
-        })
+          const user = await prisma.user.findUnique({
+            where: { email: credentials.email as string }
+          })
 
-        if (!user || !user.password) {
-          throw new Error("Email tidak ditemukan")
-        }
+          if (!user || !user.password) {
+            return null
+          }
 
-        const isValid = await bcrypt.compare(
-          credentials.password as string,
-          user.password
-        )
+          const isValid = await bcrypt.compare(
+            credentials.password as string,
+            user.password
+          )
 
-        if (!isValid) {
-          throw new Error("Password salah")
-        }
+          if (!isValid) {
+            return null
+          }
 
-        return {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          image: user.avatar,
+          return {
+            id: user.id,
+            email: user.email,
+            name: user.name,
+            image: user.avatar,
+          }
+        } catch (error) {
+          console.error("Auth error:", error)
+          return null
         }
       }
     })
