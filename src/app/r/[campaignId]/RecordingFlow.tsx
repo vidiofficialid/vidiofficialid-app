@@ -38,6 +38,13 @@ export default function RecordingFlow({ campaign }: { campaign: Campaign }) {
   const recorderRef = useRef<any>(null)
   const timerRef = useRef<NodeJS.Timeout | null>(null)
 
+  // Detect iOS
+  const isIOS = useCallback(() => {
+    if (typeof navigator === 'undefined') return false
+    return /iPad|iPhone|iPod/.test(navigator.userAgent) || 
+           (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+  }, [])
+
   // Check for multiple cameras
   useEffect(() => {
     navigator.mediaDevices.enumerateDevices()
@@ -57,8 +64,7 @@ export default function RecordingFlow({ campaign }: { campaign: Campaign }) {
     }
   }, [recordedVideoUrl])
 
-  // FIX: Attach stream to video element when step changes to 'recording'
-  // This solves the race condition between setStep and video element mounting
+  // Attach stream to video element when step changes to 'recording'
   useEffect(() => {
     if (step === 'recording' && videoRef.current && streamRef.current) {
       console.log("Mounting stream to video element on step change")
@@ -70,7 +76,6 @@ export default function RecordingFlow({ campaign }: { campaign: Campaign }) {
         })
         .catch(e => {
           console.error("Error playing video:", e)
-          // Still mark as playing if stream exists
           if (streamRef.current) setIsVideoPlaying(true)
         })
     }
@@ -84,7 +89,6 @@ export default function RecordingFlow({ campaign }: { campaign: Campaign }) {
     setIsVideoPlaying(false)
   }, [])
 
-  // Start camera - simplified, let useEffect handle video attachment
   const startCamera = useCallback(async (facing: 'user' | 'environment' = facingMode) => {
     try {
       setError(null)
@@ -92,7 +96,6 @@ export default function RecordingFlow({ campaign }: { campaign: Campaign }) {
       setIsVideoPlaying(false)
       stopAllTracks()
 
-      // Clear existing srcObject
       if (videoRef.current) {
         videoRef.current.srcObject = null
       }
@@ -107,7 +110,6 @@ export default function RecordingFlow({ campaign }: { campaign: Campaign }) {
       streamRef.current = stream
       console.log('Stream obtained:', stream.id)
 
-      // If videoRef exists (e.g., when switching camera in recording mode), attach immediately
       if (videoRef.current) {
         console.log('VideoRef exists, attaching stream directly')
         videoRef.current.srcObject = stream
@@ -119,7 +121,6 @@ export default function RecordingFlow({ campaign }: { campaign: Campaign }) {
         }
       }
       
-      // Mark camera as ready - useEffect will handle attachment if videoRef wasn't ready
       setCameraReady(true)
       return true
     } catch (err: any) {
@@ -137,7 +138,6 @@ export default function RecordingFlow({ campaign }: { campaign: Campaign }) {
     }
   }, [facingMode, stopAllTracks])
 
-  // Request permission
   const requestPermission = async () => {
     const success = await startCamera()
     if (success) {
@@ -145,7 +145,6 @@ export default function RecordingFlow({ campaign }: { campaign: Campaign }) {
     }
   }
 
-  // Switch camera
   const switchCamera = async () => {
     if (isRecording) return
     const newFacing = facingMode === 'user' ? 'environment' : 'user'
@@ -153,7 +152,27 @@ export default function RecordingFlow({ campaign }: { campaign: Campaign }) {
     await startCamera(newFacing)
   }
 
-  // Start recording
+  // Get supported mime type
+  const getSupportedMimeType = useCallback(() => {
+    if (isIOS()) {
+      return 'video/mp4'
+    }
+    
+    if (typeof MediaRecorder !== 'undefined') {
+      if (MediaRecorder.isTypeSupported('video/webm;codecs=vp9')) {
+        return 'video/webm;codecs=vp9'
+      }
+      if (MediaRecorder.isTypeSupported('video/webm;codecs=vp8')) {
+        return 'video/webm;codecs=vp8'
+      }
+      if (MediaRecorder.isTypeSupported('video/webm')) {
+        return 'video/webm'
+      }
+    }
+    
+    return 'video/mp4'
+  }, [isIOS])
+
   const handleStartRecording = async () => {
     if (!streamRef.current) {
       setError('Kamera belum siap.')
@@ -163,12 +182,21 @@ export default function RecordingFlow({ campaign }: { campaign: Campaign }) {
     try {
       setError(null)
       const RecordRTC = (await import('recordrtc')).default
+      
+      const mimeType = getSupportedMimeType()
+      console.log('Using mimeType:', mimeType, 'isIOS:', isIOS())
 
-      const recorder = new RecordRTC(streamRef.current, {
+      const recorderOptions: any = {
         type: 'video',
-        mimeType: 'video/webm',
         disableLogs: true,
-      })
+      }
+
+      // Only set mimeType if not on iOS
+      if (!isIOS()) {
+        recorderOptions.mimeType = mimeType
+      }
+
+      const recorder = new RecordRTC(streamRef.current, recorderOptions)
 
       recorder.startRecording()
       recorderRef.current = recorder
@@ -180,11 +208,11 @@ export default function RecordingFlow({ campaign }: { campaign: Campaign }) {
       }, 1000)
 
     } catch (err: any) {
+      console.error('Recording error:', err)
       setError(`Gagal memulai rekaman: ${err.message}`)
     }
   }
 
-  // Stop recording
   const handleStopRecording = () => {
     if (!recorderRef.current) return
 
@@ -203,7 +231,6 @@ export default function RecordingFlow({ campaign }: { campaign: Campaign }) {
     })
   }
 
-  // Re-record
   const handleReRecord = async () => {
     if (recordedVideoUrl) URL.revokeObjectURL(recordedVideoUrl)
     setRecordedBlob(null)
@@ -212,13 +239,10 @@ export default function RecordingFlow({ campaign }: { campaign: Campaign }) {
     setError(null)
     recorderRef.current = null
 
-    // Start camera first
     const success = await startCamera()
-    // Then change step - useEffect will handle stream attachment
     if (success) setStep('recording')
   }
 
-  // Upload video
   const uploadVideo = async () => {
     if (!recordedBlob) {
       setError('Video tidak ditemukan.')
@@ -229,8 +253,14 @@ export default function RecordingFlow({ campaign }: { campaign: Campaign }) {
     setUploadProgress(0)
 
     try {
+      const blobType = recordedBlob.type || 'video/webm'
+      const extension = blobType.includes('mp4') ? 'mp4' : 'webm'
+      const filename = `testimonial.${extension}`
+      
+      console.log('Uploading video:', { blobType, extension, size: recordedBlob.size })
+
       const formData = new FormData()
-      formData.append('video', recordedBlob, 'testimonial.webm')
+      formData.append('video', recordedBlob, filename)
       formData.append('campaignId', campaign.id)
 
       const progressInterval = setInterval(() => {
@@ -255,6 +285,7 @@ export default function RecordingFlow({ campaign }: { campaign: Campaign }) {
       setTimeout(() => setStep('success'), 500)
 
     } catch (err: any) {
+      console.error('Upload error:', err)
       setError(err.message || 'Gagal mengunggah.')
       setStep('preview')
     }
@@ -268,37 +299,53 @@ export default function RecordingFlow({ campaign }: { campaign: Campaign }) {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-100 px-4 py-4">
-        <div className="max-w-lg mx-auto flex items-center gap-3">
+      <div className="sticky top-0 z-10 bg-white border-b border-gray-100 px-4 py-3">
+        <div className="flex items-center gap-3">
           {campaign.business.logo ? (
             <Image src={campaign.business.logo} alt={campaign.business.name} width={40} height={40} className="w-10 h-10 rounded-lg object-cover" />
           ) : (
-            <div className="w-10 h-10 bg-[#FDC435] rounded-lg flex items-center justify-center">
-              <span className="font-bold text-black">{campaign.business.name.charAt(0)}</span>
+            <div className="w-10 h-10 bg-red-500 rounded-lg flex items-center justify-center">
+              <span className="text-white font-bold text-sm">{campaign.business.name.charAt(0)}</span>
             </div>
           )}
           <div>
-            <p className="font-semibold text-black">{campaign.business.name}</p>
+            <h1 className="font-semibold text-black">{campaign.business.name}</h1>
             <p className="text-xs text-gray-500">Video Testimonial</p>
           </div>
         </div>
       </div>
 
-      <div className="max-w-lg mx-auto px-4 py-6">
-        {/* Intro */}
+      <div className="p-4 max-w-md mx-auto">
         {step === 'intro' && (
-          <div className="text-center">
-            <div className="w-20 h-20 bg-[#FDC435] rounded-full flex items-center justify-center mx-auto mb-6">
-              <Video className="w-10 h-10 text-black" />
+          <div>
+            <div className="text-center mb-6">
+              <div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Video className="w-10 h-10 text-blue-600" />
+              </div>
+              <h1 className="text-2xl font-bold text-black mb-2">Halo, {campaign.customerName}! 👋</h1>
+              <p className="text-gray-600">{campaign.business.name} mengundang Anda untuk berbagi pengalaman</p>
             </div>
-            <h1 className="text-2xl font-bold text-black mb-2">Halo, {campaign.customerName}! 👋</h1>
-            <p className="text-gray-600 mb-8">Terima kasih telah bersedia memberikan testimonial untuk <strong>{campaign.brandName}</strong></p>
-            
-            <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 mb-6 text-left">
-              <h2 className="font-semibold text-black mb-4">Panduan Singkat:</h2>
+
+            {campaign.productImage && (
+              <div className="rounded-2xl overflow-hidden mb-6">
+                <Image src={campaign.productImage} alt={campaign.brandName} width={400} height={300} className="w-full h-48 object-cover" />
+              </div>
+            )}
+
+            <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 mb-6">
+              <h2 className="font-semibold text-black mb-3 flex items-center gap-2">📝 Yang perlu Anda sampaikan:</h2>
+              <p className="text-gray-700 leading-relaxed bg-gray-50 rounded-xl p-4 text-sm">{campaign.testimonialScript}</p>
+              {campaign.gestureGuide && (
+                <div className="mt-4 p-3 bg-yellow-50 rounded-xl">
+                  <p className="text-sm text-yellow-800">💡 <strong>Tip:</strong> {campaign.gestureGuide}</p>
+                </div>
+              )}
+            </div>
+
+            <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 mb-6">
+              <h2 className="font-semibold text-black mb-4">Langkah-langkah:</h2>
               <div className="space-y-3">
-                {['Izinkan akses kamera dan mikrofon', 'Ikuti script yang tersedia', 'Rekam video (30-60 detik)', 'Kirim video Anda'].map((text, i) => (
+                {['Izinkan akses kamera & mikrofon', 'Rekam video testimoni Anda', 'Preview dan kirim'].map((text, i) => (
                   <div key={i} className="flex items-start gap-3">
                     <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
                       <span className="text-xs font-bold text-blue-600">{i + 1}</span>
@@ -315,7 +362,6 @@ export default function RecordingFlow({ campaign }: { campaign: Campaign }) {
           </div>
         )}
 
-        {/* Permission */}
         {step === 'permission' && (
           <div className="text-center">
             <div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-6">
@@ -347,11 +393,9 @@ export default function RecordingFlow({ campaign }: { campaign: Campaign }) {
           </div>
         )}
 
-        {/* Recording */}
         {step === 'recording' && (
           <div>
             <div className="relative rounded-2xl overflow-hidden bg-gray-900 mb-4 aspect-[3/4]">
-              {/* Video element with event handlers */}
               <video
                 ref={videoRef}
                 autoPlay
@@ -372,7 +416,6 @@ export default function RecordingFlow({ campaign }: { campaign: Campaign }) {
                 }}
               />
 
-              {/* Loading overlay - shown when video not playing yet */}
               {!isVideoPlaying && cameraReady && (
                 <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-900">
                   <div className="w-10 h-10 border-3 border-white/30 border-t-white rounded-full animate-spin mb-3" />
@@ -380,7 +423,6 @@ export default function RecordingFlow({ campaign }: { campaign: Campaign }) {
                 </div>
               )}
 
-              {/* Camera status indicator */}
               {cameraReady && !isRecording && (
                 <div className="absolute top-4 left-4 flex items-center gap-2 bg-black/60 text-white px-3 py-1.5 rounded-full z-10">
                   <div className={`w-2 h-2 rounded-full ${isVideoPlaying ? 'bg-green-400' : 'bg-yellow-400'} animate-pulse`} />
@@ -390,7 +432,6 @@ export default function RecordingFlow({ campaign }: { campaign: Campaign }) {
                 </div>
               )}
 
-              {/* Recording indicator */}
               {isRecording && (
                 <div className="absolute top-4 left-4 flex items-center gap-2 bg-red-500 text-white px-3 py-1.5 rounded-full z-10">
                   <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
@@ -398,7 +439,6 @@ export default function RecordingFlow({ campaign }: { campaign: Campaign }) {
                 </div>
               )}
 
-              {/* Switch camera */}
               {hasMultipleCameras && !isRecording && (
                 <button
                   onClick={switchCamera}
@@ -450,7 +490,6 @@ export default function RecordingFlow({ campaign }: { campaign: Campaign }) {
           </div>
         )}
 
-        {/* Preview */}
         {step === 'preview' && recordedVideoUrl && (
           <div>
             <h2 className="text-xl font-bold text-black mb-4 text-center">Preview Video</h2>
@@ -475,7 +514,6 @@ export default function RecordingFlow({ campaign }: { campaign: Campaign }) {
           </div>
         )}
 
-        {/* Uploading */}
         {step === 'uploading' && (
           <div className="text-center py-12">
             <div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-6">
@@ -489,7 +527,6 @@ export default function RecordingFlow({ campaign }: { campaign: Campaign }) {
           </div>
         )}
 
-        {/* Success */}
         {step === 'success' && (
           <div className="text-center py-12">
             <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
