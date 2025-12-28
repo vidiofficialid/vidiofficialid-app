@@ -15,6 +15,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Validate file type
     if (!file.type.startsWith('video/')) {
       return NextResponse.json(
         { error: 'File must be a video' },
@@ -22,7 +23,8 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const maxSize = 50 * 1024 * 1024
+    // Validate file size (max 50MB)
+    const maxSize = 50 * 1024 * 1024 // 50MB
     if (file.size > maxSize) {
       return NextResponse.json(
         { error: 'Video size must be less than 50MB' },
@@ -30,12 +32,15 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Convert file to buffer
     const bytes = await file.arrayBuffer()
     const buffer = Buffer.from(bytes)
 
+    // Generate unique public ID
     const timestamp = Date.now()
     const publicId = `${campaignId || 'general'}/${customerName?.replace(/\s+/g, '-') || 'anonymous'}-${timestamp}`
 
+    // Upload to Cloudinary
     const result = await uploadVideo(buffer, {
       folder: 'vidiofficialid/testimonials',
       publicId,

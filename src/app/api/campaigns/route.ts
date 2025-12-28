@@ -59,6 +59,7 @@ export async function POST(request: NextRequest) {
 
     const data = await request.json()
 
+    // Validate required fields
     if (!data.businessId || !data.title || !data.brandName || !data.testimonialScript || !data.customerName) {
       return NextResponse.json(
         { error: "Missing required fields" },
@@ -66,6 +67,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Verify business ownership
     const business = await prisma.business.findFirst({
       where: {
         id: data.businessId,
