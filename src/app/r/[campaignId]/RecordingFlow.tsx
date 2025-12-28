@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from "react"
 import Image from "next/image"
-import { Video, Mic, Camera, Square, RotateCcw, Upload, CheckCircle, ChevronRight, AlertCircle, RefreshCw } from "lucide-react"
+import { Video, Mic, Camera, Square, RotateCcw, Upload, CheckCircle, ChevronRight, RefreshCw } from "lucide-react"
 
 interface Campaign {
   id: string
@@ -32,11 +32,14 @@ export default function RecordingFlow({ campaign }: { campaign: Campaign }) {
   const [recordedBlob, setRecordedBlob] = useState<Blob | null>(null)
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('user')
   const [hasMultipleCameras, setHasMultipleCameras] = useState(false)
+  const [isInitializing, setIsInitializing] = useState(false)
 
   const videoRef = useRef<HTMLVideoElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const recorderRef = useRef<any>(null)
   const timerRef = useRef<NodeJS.Timeout | null>(null)
+  const warmupDoneRef = useRef<boolean>(false)
+  const chunksRef = useRef<Blob[]>([])
 
   // Detect iOS
   const isIOS = useCallback(() => {
@@ -89,6 +92,43 @@ export default function RecordingFlow({ campaign }: { campaign: Campaign }) {
     setIsVideoPlaying(false)
   }, [])
 
+  // Warm-up for iOS - initialize the encoder
+  const doIOSWarmup = useCallback(async (stream: MediaStream) => {
+    if (!isIOS() || warmupDoneRef.current) return
+    
+    console.log('iOS: Performing warm-up...')
+    setIsInitializing(true)
+    
+    try {
+      const RecordRTC = (await import('recordrtc')).default
+      
+      const warmupRecorder = new RecordRTC(stream, {
+        type: 'video',
+        disableLogs: true,
+      })
+      
+      warmupRecorder.startRecording()
+      
+      // Wait 800ms for encoder to initialize
+      await new Promise(resolve => setTimeout(resolve, 800))
+      
+      await new Promise<void>((resolve) => {
+        warmupRecorder.stopRecording(() => {
+          warmupRecorder.destroy()
+          resolve()
+        })
+      })
+      
+      warmupDoneRef.current = true
+      console.log('iOS: Warm-up complete')
+    } catch (e) {
+      console.log('iOS: Warm-up error (continuing anyway):', e)
+      warmupDoneRef.current = true
+    } finally {
+      setIsInitializing(false)
+    }
+  }, [isIOS])
+
   const startCamera = useCallback(async (facing: 'user' | 'environment' = facingMode) => {
     try {
       setError(null)
@@ -103,7 +143,11 @@ export default function RecordingFlow({ campaign }: { campaign: Campaign }) {
       console.log('Requesting camera with facing mode:', facing)
       
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: facing },
+        video: { 
+          facingMode: facing,
+          width: { ideal: 720 },
+          height: { ideal: 1280 }
+        },
         audio: true
       })
 
@@ -121,6 +165,9 @@ export default function RecordingFlow({ campaign }: { campaign: Campaign }) {
         }
       }
       
+      // Do iOS warm-up after stream is ready
+      await doIOSWarmup(stream)
+      
       setCameraReady(true)
       return true
     } catch (err: any) {
@@ -136,7 +183,7 @@ export default function RecordingFlow({ campaign }: { campaign: Campaign }) {
       }
       return false
     }
-  }, [facingMode, stopAllTracks])
+  }, [facingMode, stopAllTracks, doIOSWarmup])
 
   const requestPermission = async () => {
     const success = await startCamera()
@@ -149,29 +196,9 @@ export default function RecordingFlow({ campaign }: { campaign: Campaign }) {
     if (isRecording) return
     const newFacing = facingMode === 'user' ? 'environment' : 'user'
     setFacingMode(newFacing)
+    warmupDoneRef.current = false // Reset warmup for new camera
     await startCamera(newFacing)
   }
-
-  // Get supported mime type
-  const getSupportedMimeType = useCallback(() => {
-    if (isIOS()) {
-      return 'video/mp4'
-    }
-    
-    if (typeof MediaRecorder !== 'undefined') {
-      if (MediaRecorder.isTypeSupported('video/webm;codecs=vp9')) {
-        return 'video/webm;codecs=vp9'
-      }
-      if (MediaRecorder.isTypeSupported('video/webm;codecs=vp8')) {
-        return 'video/webm;codecs=vp8'
-      }
-      if (MediaRecorder.isTypeSupported('video/webm')) {
-        return 'video/webm'
-      }
-    }
-    
-    return 'video/mp4'
-  }, [isIOS])
 
   const handleStartRecording = async () => {
     if (!streamRef.current) {
@@ -181,19 +208,34 @@ export default function RecordingFlow({ campaign }: { campaign: Campaign }) {
 
     try {
       setError(null)
+      chunksRef.current = []
+      
       const RecordRTC = (await import('recordrtc')).default
       
-      const mimeType = getSupportedMimeType()
-      console.log('Using mimeType:', mimeType, 'isIOS:', isIOS())
+      console.log('Starting recording, isIOS:', isIOS())
 
       const recorderOptions: any = {
         type: 'video',
-        disableLogs: true,
+        disableLogs: false,
+        // Use timeSlice for chunked recording (helps with iOS)
+        timeSlice: isIOS() ? 1000 : undefined,
+        ondataavailable: isIOS() ? (blob: Blob) => {
+          if (blob && blob.size > 0) {
+            chunksRef.current.push(blob)
+            console.log('Chunk received:', blob.size)
+          }
+        } : undefined,
       }
 
-      // Only set mimeType if not on iOS
+      // For non-iOS, set mimeType
       if (!isIOS()) {
-        recorderOptions.mimeType = mimeType
+        if (typeof MediaRecorder !== 'undefined') {
+          if (MediaRecorder.isTypeSupported('video/webm;codecs=vp9')) {
+            recorderOptions.mimeType = 'video/webm;codecs=vp9'
+          } else if (MediaRecorder.isTypeSupported('video/webm')) {
+            recorderOptions.mimeType = 'video/webm'
+          }
+        }
       }
 
       const recorder = new RecordRTC(streamRef.current, recorderOptions)
@@ -221,13 +263,34 @@ export default function RecordingFlow({ campaign }: { campaign: Campaign }) {
       timerRef.current = null
     }
 
+    setIsRecording(false)
+
     recorderRef.current.stopRecording(() => {
-      const blob = recorderRef.current.getBlob()
+      let blob: Blob
+      
+      // For iOS with chunked recording, combine chunks
+      if (isIOS() && chunksRef.current.length > 0) {
+        console.log('iOS: Combining', chunksRef.current.length, 'chunks')
+        blob = new Blob(chunksRef.current, { type: 'video/mp4' })
+      } else {
+        blob = recorderRef.current.getBlob()
+      }
+      
+      console.log('Final blob:', blob.type, blob.size)
+      
+      if (blob.size < 1000) {
+        setError('Video terlalu pendek atau gagal direkam. Silakan coba lagi.')
+        setStep('recording')
+        return
+      }
+      
       const url = URL.createObjectURL(blob)
       setRecordedBlob(blob)
       setRecordedVideoUrl(url)
-      setIsRecording(false)
       setStep('preview')
+      
+      // Cleanup
+      chunksRef.current = []
     })
   }
 
@@ -238,6 +301,7 @@ export default function RecordingFlow({ campaign }: { campaign: Campaign }) {
     setRecordingTime(0)
     setError(null)
     recorderRef.current = null
+    chunksRef.current = []
 
     const success = await startCamera()
     if (success) setStep('recording')
@@ -249,23 +313,37 @@ export default function RecordingFlow({ campaign }: { campaign: Campaign }) {
       return
     }
 
+    // Validate blob size
+    if (recordedBlob.size < 1000) {
+      setError('Video terlalu kecil. Silakan rekam ulang.')
+      return
+    }
+
     setStep('uploading')
     setUploadProgress(0)
 
     try {
-      const blobType = recordedBlob.type || 'video/webm'
-      const extension = blobType.includes('mp4') ? 'mp4' : 'webm'
+      const blobType = recordedBlob.type || 'video/mp4'
+      let extension = 'mp4'
+      if (blobType.includes('webm')) extension = 'webm'
+      else if (blobType.includes('mov')) extension = 'mov'
+      
       const filename = `testimonial.${extension}`
       
-      console.log('Uploading video:', { blobType, extension, size: recordedBlob.size })
+      console.log('Uploading video:', { 
+        blobType, 
+        extension, 
+        size: recordedBlob.size,
+        isIOS: isIOS()
+      })
 
       const formData = new FormData()
       formData.append('video', recordedBlob, filename)
       formData.append('campaignId', campaign.id)
 
       const progressInterval = setInterval(() => {
-        setUploadProgress(prev => Math.min(prev + 10, 90))
-      }, 500)
+        setUploadProgress(prev => Math.min(prev + 5, 90))
+      }, 300)
 
       const response = await fetch('/api/testimonials/upload', {
         method: 'POST',
@@ -286,7 +364,7 @@ export default function RecordingFlow({ campaign }: { campaign: Campaign }) {
 
     } catch (err: any) {
       console.error('Upload error:', err)
-      setError(err.message || 'Gagal mengunggah.')
+      setError(err.message || 'Gagal mengunggah. Silakan coba lagi.')
       setStep('preview')
     }
   }
@@ -299,6 +377,7 @@ export default function RecordingFlow({ campaign }: { campaign: Campaign }) {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* Header */}
       <div className="sticky top-0 z-10 bg-white border-b border-gray-100 px-4 py-3">
         <div className="flex items-center gap-3">
           {campaign.business.logo ? (
@@ -316,6 +395,7 @@ export default function RecordingFlow({ campaign }: { campaign: Campaign }) {
       </div>
 
       <div className="p-4 max-w-md mx-auto">
+        {/* Intro */}
         {step === 'intro' && (
           <div>
             <div className="text-center mb-6">
@@ -362,6 +442,7 @@ export default function RecordingFlow({ campaign }: { campaign: Campaign }) {
           </div>
         )}
 
+        {/* Permission */}
         {step === 'permission' && (
           <div className="text-center">
             <div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-6">
@@ -393,6 +474,7 @@ export default function RecordingFlow({ campaign }: { campaign: Campaign }) {
           </div>
         )}
 
+        {/* Recording */}
         {step === 'recording' && (
           <div>
             <div className="relative rounded-2xl overflow-hidden bg-gray-900 mb-4 aspect-[3/4]">
@@ -405,9 +487,6 @@ export default function RecordingFlow({ campaign }: { campaign: Campaign }) {
                   console.log('Video onPlaying event fired')
                   setIsVideoPlaying(true)
                 }}
-                onCanPlay={() => {
-                  console.log('Video onCanPlay event fired')
-                }}
                 className="w-full h-full object-cover"
                 style={{ 
                   transform: facingMode === 'user' ? 'scaleX(-1)' : 'scaleX(1)',
@@ -416,22 +495,27 @@ export default function RecordingFlow({ campaign }: { campaign: Campaign }) {
                 }}
               />
 
-              {!isVideoPlaying && cameraReady && (
+              {/* Loading/Initializing overlay */}
+              {(!isVideoPlaying || isInitializing) && cameraReady && (
                 <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-900">
                   <div className="w-10 h-10 border-3 border-white/30 border-t-white rounded-full animate-spin mb-3" />
-                  <p className="text-white text-sm">Menyiapkan kamera...</p>
+                  <p className="text-white text-sm">
+                    {isInitializing ? 'Menyiapkan perekam...' : 'Menyiapkan kamera...'}
+                  </p>
                 </div>
               )}
 
-              {cameraReady && !isRecording && (
+              {/* Camera status */}
+              {cameraReady && !isRecording && !isInitializing && (
                 <div className="absolute top-4 left-4 flex items-center gap-2 bg-black/60 text-white px-3 py-1.5 rounded-full z-10">
                   <div className={`w-2 h-2 rounded-full ${isVideoPlaying ? 'bg-green-400' : 'bg-yellow-400'} animate-pulse`} />
                   <span className="text-xs font-medium">
-                    {isVideoPlaying ? 'Kamera aktif' : 'Menghubungkan...'}
+                    {isVideoPlaying ? 'Siap merekam' : 'Menghubungkan...'}
                   </span>
                 </div>
               )}
 
+              {/* Recording indicator */}
               {isRecording && (
                 <div className="absolute top-4 left-4 flex items-center gap-2 bg-red-500 text-white px-3 py-1.5 rounded-full z-10">
                   <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
@@ -439,7 +523,8 @@ export default function RecordingFlow({ campaign }: { campaign: Campaign }) {
                 </div>
               )}
 
-              {hasMultipleCameras && !isRecording && (
+              {/* Switch camera */}
+              {hasMultipleCameras && !isRecording && !isInitializing && (
                 <button
                   onClick={switchCamera}
                   className="absolute top-4 right-4 w-10 h-10 bg-black/60 rounded-full flex items-center justify-center text-white hover:bg-black/80 z-10"
@@ -470,7 +555,7 @@ export default function RecordingFlow({ campaign }: { campaign: Campaign }) {
               {!isRecording ? (
                 <button
                   onClick={handleStartRecording}
-                  disabled={!cameraReady}
+                  disabled={!cameraReady || isInitializing}
                   className="w-20 h-20 bg-red-500 rounded-full flex items-center justify-center hover:bg-red-600 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all hover:scale-105"
                 >
                   <div className="w-8 h-8 bg-white rounded-full" />
@@ -485,11 +570,12 @@ export default function RecordingFlow({ campaign }: { campaign: Campaign }) {
               )}
             </div>
             <p className="text-center text-sm text-gray-500 mt-3">
-              {isRecording ? 'Ketuk untuk berhenti' : cameraReady ? 'Ketuk untuk rekam' : 'Menunggu kamera...'}
+              {isRecording ? 'Ketuk untuk berhenti' : isInitializing ? 'Mohon tunggu...' : cameraReady ? 'Ketuk untuk rekam' : 'Menunggu kamera...'}
             </p>
           </div>
         )}
 
+        {/* Preview */}
         {step === 'preview' && recordedVideoUrl && (
           <div>
             <h2 className="text-xl font-bold text-black mb-4 text-center">Preview Video</h2>
@@ -514,6 +600,7 @@ export default function RecordingFlow({ campaign }: { campaign: Campaign }) {
           </div>
         )}
 
+        {/* Uploading */}
         {step === 'uploading' && (
           <div className="text-center py-12">
             <div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-6">
@@ -527,6 +614,7 @@ export default function RecordingFlow({ campaign }: { campaign: Campaign }) {
           </div>
         )}
 
+        {/* Success */}
         {step === 'success' && (
           <div className="text-center py-12">
             <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
