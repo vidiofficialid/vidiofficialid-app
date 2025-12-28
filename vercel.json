@@ -1,8 +1,15 @@
 {
-  "crons": [
+  "functions": {
+    "src/app/api/**/*.ts": {
+      "maxDuration": 60
+    }
+  },
+  "routes": [
     {
-      "path": "/api/cron/cleanup",
-      "schedule": "0 0 * * *"
+      "src": "/api/(.*)",
+      "headers": {
+        "Content-Type": "application/json"
+      }
     }
   ]
 }
