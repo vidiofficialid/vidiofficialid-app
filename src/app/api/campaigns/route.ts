@@ -2,140 +2,100 @@ import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+// GET - List all campaigns for user
+export async function GET(request: NextRequest) {
   try {
     const session = await auth()
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { id } = await params
+    const { searchParams } = new URL(request.url)
+    const businessId = searchParams.get("businessId")
 
-    const campaign = await prisma.campaign.findFirst({
-      where: { id },
+    const whereClause = businessId
+      ? {
+          businessId,
+          business: { userId: session.user.id }
+        }
+      : {
+          business: { userId: session.user.id }
+        }
+
+    const campaigns = await prisma.campaign.findMany({
+      where: whereClause,
       include: {
         business: {
           select: {
             id: true,
             name: true,
-            logo: true,
-            userId: true
+            logo: true
           }
         },
         testimonials: {
-          orderBy: { recordedAt: "desc" }
+          select: {
+            id: true,
+            status: true
+          }
         }
-      }
+      },
+      orderBy: { createdAt: "desc" }
     })
 
-    if (!campaign) {
-      return NextResponse.json({ error: "Campaign not found" }, { status: 404 })
-    }
-
-    // Check ownership
-    if (campaign.business.userId !== session.user.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 403 })
-    }
-
-    return NextResponse.json({ campaign })
+    return NextResponse.json({ campaigns })
   } catch (error) {
     console.error(error)
     return NextResponse.json({ error: "Server error" }, { status: 500 })
   }
 }
 
-export async function PUT(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+// POST - Create new campaign
+export async function POST(request: NextRequest) {
   try {
     const session = await auth()
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { id } = await params
     const data = await request.json()
 
-    // Get campaign with business info
-    const existingCampaign = await prisma.campaign.findFirst({
-      where: { id },
-      include: {
-        business: {
-          select: { userId: true }
-        }
+    if (!data.businessId || !data.title || !data.brandName || !data.testimonialScript || !data.customerName) {
+      return NextResponse.json(
+        { error: "Missing required fields" },
+        { status: 400 }
+      )
+    }
+
+    const business = await prisma.business.findFirst({
+      where: {
+        id: data.businessId,
+        userId: session.user.id
       }
     })
 
-    if (!existingCampaign) {
-      return NextResponse.json({ error: "Campaign not found" }, { status: 404 })
+    if (!business) {
+      return NextResponse.json(
+        { error: "Business not found or unauthorized" },
+        { status: 404 }
+      )
     }
 
-    // Check ownership
-    if (existingCampaign.business.userId !== session.user.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 403 })
-    }
-
-    const campaign = await prisma.campaign.update({
-      where: { id },
+    const campaign = await prisma.campaign.create({
       data: {
+        businessId: data.businessId,
         title: data.title,
         brandName: data.brandName,
-        productImage: data.productImage,
+        productImage: data.productImage || null,
         testimonialScript: data.testimonialScript,
-        gestureGuide: data.gestureGuide,
+        gestureGuide: data.gestureGuide || null,
         customerName: data.customerName,
-        customerEmail: data.customerEmail,
-        customerWhatsapp: data.customerWhatsapp,
-        status: data.status
+        customerEmail: data.customerEmail || null,
+        customerWhatsapp: data.customerWhatsapp || null,
+        status: "DRAFT"
       }
     })
 
-    return NextResponse.json({ success: true, campaign })
-  } catch (error) {
-    console.error(error)
-    return NextResponse.json({ error: "Server error" }, { status: 500 })
-  }
-}
-
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const session = await auth()
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
-
-    const { id } = await params
-
-    // Get campaign with business info
-    const existingCampaign = await prisma.campaign.findFirst({
-      where: { id },
-      include: {
-        business: {
-          select: { userId: true }
-        }
-      }
-    })
-
-    if (!existingCampaign) {
-      return NextResponse.json({ error: "Campaign not found" }, { status: 404 })
-    }
-
-    // Check ownership
-    if (existingCampaign.business.userId !== session.user.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 403 })
-    }
-
-    // Delete campaign (testimonials will be cascade deleted)
-    await prisma.campaign.delete({ where: { id } })
-
-    return NextResponse.json({ success: true })
+    return NextResponse.json({ success: true, campaign }, { status: 201 })
   } catch (error) {
     console.error(error)
     return NextResponse.json({ error: "Server error" }, { status: 500 })
