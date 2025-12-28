@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma"
 import { notFound } from "next/navigation"
 import Link from "next/link"
 import Image from "next/image"
-import { ArrowLeft, Video, Calendar, Clock, AlertTriangle, Download } from "lucide-react"
+import { ArrowLeft, Video, AlertTriangle } from "lucide-react"
 import { RecordingCard } from "./RecordingCard"
 
 interface Props {
@@ -35,19 +35,9 @@ export default async function CampaignRecordingsPage({ params }: Props) {
     notFound()
   }
 
-  const formatDate = (date: Date) => {
-    return new Intl.DateTimeFormat('id-ID', {
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    }).format(new Date(date))
-  }
-
   const getDaysRemaining = (recordedAt: Date) => {
     const uploadDate = new Date(recordedAt)
-    const deleteDate = new Date(uploadDate.getTime() + 15 * 24 * 60 * 60 * 1000) // 15 days
+    const deleteDate = new Date(uploadDate.getTime() + 15 * 24 * 60 * 60 * 1000)
     const now = new Date()
     const daysRemaining = Math.ceil((deleteDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
     return Math.max(0, daysRemaining)
@@ -55,7 +45,6 @@ export default async function CampaignRecordingsPage({ params }: Props) {
 
   return (
     <div className="max-w-4xl mx-auto">
-      {/* Header */}
       <div className="mb-6">
         <Link 
           href="/dashboard/campaigns" 
@@ -87,7 +76,6 @@ export default async function CampaignRecordingsPage({ params }: Props) {
         </div>
       </div>
 
-      {/* Warning */}
       <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 mb-6">
         <div className="flex items-start gap-3">
           <AlertTriangle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
@@ -100,7 +88,6 @@ export default async function CampaignRecordingsPage({ params }: Props) {
         </div>
       </div>
 
-      {/* Recordings */}
       {campaign.testimonials.length === 0 ? (
         <div className="bg-white rounded-xl lg:rounded-2xl p-8 lg:p-12 shadow-sm border border-gray-100 text-center">
           <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -135,7 +122,6 @@ export default async function CampaignRecordingsPage({ params }: Props) {
                     cloudinaryId: testimonial.cloudinaryId
                   }}
                   daysRemaining={daysRemaining}
-                  campaignId={campaign.id}
                 />
               )
             })}
