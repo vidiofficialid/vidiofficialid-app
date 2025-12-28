@@ -33,6 +33,7 @@ export default function RecordingFlow({ campaign }: { campaign: Campaign }) {
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('user')
   const [hasMultipleCameras, setHasMultipleCameras] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
+  const [uploadStatus, setUploadStatus] = useState('')
 
   const videoRef = useRef<HTMLVideoElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
@@ -112,7 +113,6 @@ export default function RecordingFlow({ campaign }: { campaign: Campaign }) {
 
       if (videoRef.current) videoRef.current.srcObject = null
 
-      // Lower resolution for smaller file size
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
           facingMode: facing,
@@ -123,7 +123,6 @@ export default function RecordingFlow({ campaign }: { campaign: Campaign }) {
         audio: {
           echoCancellation: true,
           noiseSuppression: true,
-          sampleRate: 44100
         }
       })
 
@@ -179,8 +178,8 @@ export default function RecordingFlow({ campaign }: { campaign: Campaign }) {
       chunksRef.current = []
 
       const options: MediaRecorderOptions = {
-        videoBitsPerSecond: 800000, // 800kbps for smaller file
-        audioBitsPerSecond: 64000,  // 64kbps audio
+        videoBitsPerSecond: 800000,
+        audioBitsPerSecond: 64000,
       }
       
       if (!isIOS() && !isSafari()) {
@@ -200,8 +199,7 @@ export default function RecordingFlow({ campaign }: { campaign: Campaign }) {
         }
       }
 
-      mediaRecorder.onerror = (event: any) => {
-        console.error('MediaRecorder error:', event)
+      mediaRecorder.onerror = () => {
         setError('Terjadi kesalahan saat merekam.')
         setIsRecording(false)
       }
@@ -275,49 +273,84 @@ export default function RecordingFlow({ campaign }: { campaign: Campaign }) {
   const uploadVideo = async () => {
     if (!recordedBlob || isUploading) return
 
-    if (recordedBlob.size < 1000) {
-      setError('Video terlalu kecil. Silakan rekam ulang.')
-      return
-    }
-
     setIsUploading(true)
     setStep('uploading')
     setUploadProgress(0)
     setError(null)
+    setUploadStatus('Mempersiapkan upload...')
 
     try {
-      const timestamp = Date.now()
-      const blobType = recordedBlob.type || 'video/mp4'
-      
-      let extension = 'mp4'
-      if (blobType.includes('webm')) extension = 'webm'
-      
-      const filename = 'testimonial-' + timestamp + '.' + extension
-      const file = new File([recordedBlob], filename, { type: blobType })
-
-      console.log('Uploading:', { name: file.name, type: file.type, size: file.size })
-
-      const formData = new FormData()
-      formData.append('video', file)
-      formData.append('campaignId', campaign.id)
-
-      const progressInterval = setInterval(() => {
-        setUploadProgress(prev => prev >= 90 ? 90 : prev + 10)
-      }, 500)
-
-      const response = await fetch('/api/testimonials/upload', {
+      setUploadStatus('Mendapatkan izin upload...')
+      const signatureRes = await fetch('/api/cloudinary/signature', {
         method: 'POST',
-        body: formData,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ campaignId: campaign.id })
       })
 
-      clearInterval(progressInterval)
+      if (!signatureRes.ok) {
+        throw new Error('Gagal mendapatkan izin upload')
+      }
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        throw new Error(errorData.error || 'Upload gagal. Status: ' + response.status)
+      const { signature, timestamp, folder, cloudName, apiKey } = await signatureRes.json()
+      
+      setUploadProgress(10)
+      setUploadStatus('Mengunggah ke cloud...')
+
+      const formData = new FormData()
+      formData.append('file', recordedBlob)
+      formData.append('api_key', apiKey)
+      formData.append('timestamp', timestamp.toString())
+      formData.append('signature', signature)
+      formData.append('folder', folder)
+
+      const xhr = new XMLHttpRequest()
+      
+      const uploadPromise = new Promise<any>((resolve, reject) => {
+        xhr.upload.onprogress = (event) => {
+          if (event.lengthComputable) {
+            const percent = Math.round((event.loaded / event.total) * 80) + 10
+            setUploadProgress(percent)
+          }
+        }
+
+        xhr.onload = () => {
+          if (xhr.status === 200) {
+            resolve(JSON.parse(xhr.responseText))
+          } else {
+            reject(new Error('Upload ke Cloudinary gagal'))
+          }
+        }
+
+        xhr.onerror = () => reject(new Error('Network error'))
+
+        xhr.open('POST', `https://api.cloudinary.com/v1_1/${cloudName}/video/upload`)
+        xhr.send(formData)
+      })
+
+      const cloudinaryResult = await uploadPromise
+      console.log('Cloudinary result:', cloudinaryResult)
+
+      setUploadProgress(95)
+      setUploadStatus('Menyimpan data...')
+
+      const saveRes = await fetch('/api/testimonials/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          campaignId: campaign.id,
+          videoUrl: cloudinaryResult.secure_url,
+          publicId: cloudinaryResult.public_id,
+          duration: cloudinaryResult.duration,
+          fileSize: cloudinaryResult.bytes
+        })
+      })
+
+      if (!saveRes.ok) {
+        throw new Error('Gagal menyimpan data')
       }
 
       setUploadProgress(100)
+      setUploadStatus('Selesai!')
       stopAllTracks()
       
       setTimeout(() => {
@@ -341,7 +374,6 @@ export default function RecordingFlow({ campaign }: { campaign: Campaign }) {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
       <div className="sticky top-0 z-30 bg-white border-b border-gray-100 px-4 py-3">
         <div className="flex items-center gap-3 max-w-md mx-auto">
           {campaign.business.logo ? (
@@ -359,7 +391,6 @@ export default function RecordingFlow({ campaign }: { campaign: Campaign }) {
       </div>
 
       <div className="max-w-md mx-auto">
-        {/* Intro */}
         {step === 'intro' && (
           <div className="p-4 pt-6">
             <div className="text-center mb-6">
@@ -406,7 +437,6 @@ export default function RecordingFlow({ campaign }: { campaign: Campaign }) {
           </div>
         )}
 
-        {/* Permission */}
         {step === 'permission' && (
           <div className="p-4 pt-8 text-center">
             <div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-6">
@@ -438,10 +468,8 @@ export default function RecordingFlow({ campaign }: { campaign: Campaign }) {
           </div>
         )}
 
-        {/* Recording - Full Screen Style */}
         {step === 'recording' && (
           <div className="relative" style={{ height: 'calc(100vh - 64px)' }}>
-            {/* Video Preview - Full Screen */}
             <div className="absolute inset-0">
               <video
                 ref={videoRef}
@@ -460,9 +488,7 @@ export default function RecordingFlow({ campaign }: { campaign: Campaign }) {
                 </div>
               )}
 
-              {/* Top Status Bar */}
               <div className="absolute top-4 left-4 right-4 flex items-center justify-between">
-                {/* Status Indicator */}
                 <div className="flex items-center gap-2 bg-black/50 backdrop-blur-sm text-white px-4 py-2 rounded-full">
                   <div className={`w-2.5 h-2.5 rounded-full ${isRecording ? 'bg-red-500 animate-pulse' : 'bg-green-400'}`} />
                   <span className="text-sm font-medium">
@@ -470,7 +496,6 @@ export default function RecordingFlow({ campaign }: { campaign: Campaign }) {
                   </span>
                 </div>
 
-                {/* Timer */}
                 <div className="bg-black/50 backdrop-blur-sm text-white px-4 py-2 rounded-full">
                   <span className="text-sm font-bold">
                     {isRecording ? formatTime(recordingTime) : formatTime(MAX_DURATION)}
@@ -478,7 +503,6 @@ export default function RecordingFlow({ campaign }: { campaign: Campaign }) {
                 </div>
               </div>
 
-              {/* Switch Camera - Top Right Below Status */}
               {hasMultipleCameras && !isRecording && (
                 <button
                   onClick={switchCamera}
@@ -488,14 +512,13 @@ export default function RecordingFlow({ campaign }: { campaign: Campaign }) {
                 </button>
               )}
 
-              {/* Record Button - Right Side */}
               <div className="absolute right-4 top-1/2 -translate-y-1/2 flex flex-col items-center">
                 {!isRecording ? (
                   <>
                     <button
                       onClick={handleStartRecording}
                       disabled={!cameraReady || !isVideoPlaying}
-                      className="w-16 h-16 rounded-full flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed active:scale-90 transition-transform"
+                      className="w-16 h-16 rounded-full flex items-center justify-center disabled:opacity-50 active:scale-90 transition-transform"
                       style={{
                         background: 'linear-gradient(135deg, #ef4444 0%, #b91c1c 100%)',
                         boxShadow: '0 4px 15px rgba(239, 68, 68, 0.4), inset 0 0 0 3px rgba(255,255,255,0.3)'
@@ -526,23 +549,20 @@ export default function RecordingFlow({ campaign }: { campaign: Campaign }) {
                 )}
               </div>
 
-              {/* Script Card - Bottom, Scrollable */}
               <div className="absolute bottom-0 left-0 right-0 p-4">
                 <div className="bg-white/90 backdrop-blur-sm rounded-2xl p-4 shadow-lg max-h-40 overflow-hidden">
                   <p className="text-xs text-gray-500 font-semibold mb-2">Script :</p>
-                  <div className="max-h-20 overflow-y-auto">
+                  <div className="max-h-16 overflow-y-auto">
                     <p className="text-sm text-gray-700 leading-relaxed">{campaign.testimonialScript}</p>
                   </div>
                   {campaign.gestureGuide && (
-                    <div className="mt-3 pt-3 border-t border-gray-200">
-                      <p className="text-xs text-yellow-700 font-semibold">Gesture :</p>
-                      <p className="text-sm text-yellow-600">{campaign.gestureGuide}</p>
+                    <div className="mt-2 pt-2 border-t border-gray-200">
+                      <p className="text-xs text-yellow-600">💡 {campaign.gestureGuide}</p>
                     </div>
                   )}
                 </div>
               </div>
 
-              {/* Error Message */}
               {error && (
                 <div className="absolute top-32 left-4 right-4">
                   <div className="bg-red-500/90 backdrop-blur-sm rounded-xl p-3">
@@ -554,7 +574,6 @@ export default function RecordingFlow({ campaign }: { campaign: Campaign }) {
           </div>
         )}
 
-        {/* Preview */}
         {step === 'preview' && recordedVideoUrl && (
           <div className="p-4 pt-6">
             <h2 className="text-xl font-bold text-black mb-4 text-center">Preview Video</h2>
@@ -586,14 +605,14 @@ export default function RecordingFlow({ campaign }: { campaign: Campaign }) {
           </div>
         )}
 
-        {/* Uploading */}
         {step === 'uploading' && (
           <div className="p-4 pt-12 text-center">
             <div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-6">
               <Upload className="w-10 h-10 text-blue-600 animate-pulse" />
             </div>
             <h2 className="text-xl font-bold text-black mb-2">Mengunggah Video...</h2>
-            <p className="text-sm text-gray-500 mb-6">Durasi: {formatTime(recordingTime)}</p>
+            <p className="text-sm text-gray-500 mb-2">{uploadStatus}</p>
+            <p className="text-xs text-gray-400 mb-4">Durasi: {formatTime(recordingTime)}</p>
             <div className="w-full bg-gray-200 rounded-full h-3 mb-2">
               <div className="bg-blue-500 h-3 rounded-full transition-all duration-300" style={{ width: uploadProgress + '%' }} />
             </div>
@@ -601,7 +620,6 @@ export default function RecordingFlow({ campaign }: { campaign: Campaign }) {
           </div>
         )}
 
-        {/* Success */}
         {step === 'success' && (
           <div className="p-4 pt-12 text-center">
             <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
