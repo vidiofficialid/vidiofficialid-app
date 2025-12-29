@@ -22,7 +22,7 @@ export async function signUp(formData: FormData) {
     return { error: 'Password minimal 6 karakter' }
   }
 
-  const { error } = await supabase.auth.signUp({
+  const { data, error } = await supabase.auth.signUp({
     email,
     password,
     options: {
@@ -200,9 +200,13 @@ export async function updateProfile(formData: FormData) {
 
   const name = formData.get('name') as string
 
-  const { error } = await supabase
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (supabase as any)
     .from('profiles')
-    .update({ name } as never)
+    .update({ 
+      name,
+      updated_at: new Date().toISOString(),
+    })
     .eq('id', user.id)
 
   if (error) {

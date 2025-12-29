@@ -1,7 +1,8 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
+import type { Database } from '@/types/database'
 
-type CookieOptions = {
+interface CookieToSet {
   name: string
   value: string
   options?: Record<string, unknown>
@@ -12,7 +13,7 @@ export async function updateSession(request: NextRequest) {
     request,
   })
 
-  const supabase = createServerClient(
+  const supabase = createServerClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
@@ -20,7 +21,7 @@ export async function updateSession(request: NextRequest) {
         getAll() {
           return request.cookies.getAll()
         },
-        setAll(cookiesToSet: CookieOptions[]) {
+        setAll(cookiesToSet: CookieToSet[]) {
           cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
           supabaseResponse = NextResponse.next({
             request,
@@ -43,17 +44,44 @@ export async function updateSession(request: NextRequest) {
                      request.nextUrl.pathname.startsWith('/reset-password')
   
   const isProtectedRoute = request.nextUrl.pathname.startsWith('/dashboard')
+  const isEditorRoute = request.nextUrl.pathname.startsWith('/editor-blog')
   const isAuthCallback = request.nextUrl.pathname.startsWith('/auth/callback')
 
   if (isAuthCallback) {
     return supabaseResponse
   }
 
+  // Protected routes for authenticated users (dashboard)
   if (isProtectedRoute && !user) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
     url.searchParams.set('redirect', request.nextUrl.pathname)
     return NextResponse.redirect(url)
+  }
+
+  // Protected routes for editors only (editor-blog)
+  if (isEditorRoute) {
+    if (!user) {
+      const url = request.nextUrl.clone()
+      url.pathname = '/login'
+      url.searchParams.set('redirect', request.nextUrl.pathname)
+      return NextResponse.redirect(url)
+    }
+
+    // Check if user has editor or admin role
+    const { data } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single()
+
+    const profile = data as { role: string } | null
+
+    if (profile?.role !== 'editor' && profile?.role !== 'admin') {
+      const url = request.nextUrl.clone()
+      url.pathname = '/dashboard'
+      return NextResponse.redirect(url)
+    }
   }
 
   if (isAuthPage && user) {

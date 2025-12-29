@@ -1,0 +1,6 @@
+export { Navbar } from './Navbar'
+export { HeroSection } from './HeroSection'
+export { FeaturesSlider } from './FeaturesSlider'
+export { HowItWorksSection } from './HowItWorksSection'
+export { BlogPreviewSection } from './BlogPreviewSection'
+export { Footer } from './Footer'

@@ -12,13 +12,11 @@ export default async function DashboardPage() {
     redirect('/login')
   }
 
-  const { data } = await supabase
+  const { data: profile } = await supabase
     .from('profiles')
     .select('*')
     .eq('id', user.id)
-    .single()
-
-  const profile = data as Profile | null
+    .single() as { data: Profile | null }
 
   return (
     <div className="min-h-screen bg-gray-50">
