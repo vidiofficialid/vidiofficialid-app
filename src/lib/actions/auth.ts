@@ -22,7 +22,7 @@ export async function signUp(formData: FormData) {
     return { error: 'Password minimal 6 karakter' }
   }
 
-  const { data, error } = await supabase.auth.signUp({
+  const { error } = await supabase.auth.signUp({
     email,
     password,
     options: {
@@ -202,10 +202,7 @@ export async function updateProfile(formData: FormData) {
 
   const { error } = await supabase
     .from('profiles')
-    .update({ 
-      name,
-      updated_at: new Date().toISOString(),
-    })
+    .update({ name } as never)
     .eq('id', user.id)
 
   if (error) {
