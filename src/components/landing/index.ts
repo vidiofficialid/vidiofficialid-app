@@ -1,6 +1,0 @@
-export { Hero } from "./Hero"
-export { MockupCarousel } from "./MockupCarousel"
-export { ContentSection } from "./ContentSection"
-export { ProcessSection } from "./ProcessSection"
-export { BlogGrid } from "./BlogGrid"
-export { Footer } from "./Footer"
