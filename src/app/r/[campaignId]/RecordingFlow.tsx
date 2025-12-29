@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from "react"
 import Image from "next/image"
-import { Video, Mic, Camera, Square, RotateCcw, Upload, CheckCircle, ChevronRight, RefreshCw } from "lucide-react"
+import { Video, Mic, Camera, Square, RotateCcw, Upload, CheckCircle, ChevronRight, AlertCircle, RefreshCw } from "lucide-react"
 
 interface Campaign {
   id: string
@@ -32,33 +32,15 @@ export default function RecordingFlow({ campaign }: { campaign: Campaign }) {
   const [recordedBlob, setRecordedBlob] = useState<Blob | null>(null)
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('user')
   const [hasMultipleCameras, setHasMultipleCameras] = useState(false)
-  const [isUploading, setIsUploading] = useState(false)
-  const [uploadStatus, setUploadStatus] = useState('')
 
   const videoRef = useRef<HTMLVideoElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null)
-  const chunksRef = useRef<Blob[]>([])
+  const recorderRef = useRef<any>(null)
   const timerRef = useRef<NodeJS.Timeout | null>(null)
 
-  const MAX_DURATION = 60
-
-  const isIOS = useCallback(() => {
-    if (typeof window === 'undefined') return false
-    const ua = window.navigator.userAgent
-    return /iPad|iPhone|iPod/.test(ua) || 
-           (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
-  }, [])
-
-  const isSafari = useCallback(() => {
-    if (typeof window === 'undefined') return false
-    const ua = window.navigator.userAgent
-    return /^((?!chrome|android).)*safari/i.test(ua)
-  }, [])
-
+  // Check for multiple cameras
   useEffect(() => {
-    if (typeof navigator === 'undefined') return
-    navigator.mediaDevices?.enumerateDevices()
+    navigator.mediaDevices.enumerateDevices()
       .then(devices => {
         const videoInputs = devices.filter(d => d.kind === 'videoinput')
         setHasMultipleCameras(videoInputs.length > 1)
@@ -66,6 +48,7 @@ export default function RecordingFlow({ campaign }: { campaign: Campaign }) {
       .catch(() => {})
   }, [])
 
+  // Cleanup on unmount
   useEffect(() => {
     return () => {
       stopAllTracks()
@@ -74,36 +57,34 @@ export default function RecordingFlow({ campaign }: { campaign: Campaign }) {
     }
   }, [recordedVideoUrl])
 
+  // FIX: Attach stream to video element when step changes to 'recording'
+  // This solves the race condition between setStep and video element mounting
   useEffect(() => {
     if (step === 'recording' && videoRef.current && streamRef.current) {
+      console.log("Mounting stream to video element on step change")
       videoRef.current.srcObject = streamRef.current
       videoRef.current.play()
-        .then(() => setIsVideoPlaying(true))
-        .catch((e) => {
-          console.error("Video play error:", e)
+        .then(() => {
+          console.log("Video playing successfully")
+          setIsVideoPlaying(true)
+        })
+        .catch(e => {
+          console.error("Error playing video:", e)
+          // Still mark as playing if stream exists
           if (streamRef.current) setIsVideoPlaying(true)
         })
     }
   }, [step])
-
-  useEffect(() => {
-    if (isRecording && recordingTime >= MAX_DURATION) {
-      handleStopRecording()
-    }
-  }, [recordingTime, isRecording])
 
   const stopAllTracks = useCallback(() => {
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(track => track.stop())
       streamRef.current = null
     }
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
-      try { mediaRecorderRef.current.stop() } catch (e) {}
-    }
-    mediaRecorderRef.current = null
     setIsVideoPlaying(false)
   }, [])
 
+  // Start camera - simplified, let useEffect handle video attachment
   const startCamera = useCallback(async (facing: 'user' | 'environment' = facingMode) => {
     try {
       setError(null)
@@ -111,55 +92,60 @@ export default function RecordingFlow({ campaign }: { campaign: Campaign }) {
       setIsVideoPlaying(false)
       stopAllTracks()
 
-      if (videoRef.current) videoRef.current.srcObject = null
+      // Clear existing srcObject
+      if (videoRef.current) {
+        videoRef.current.srcObject = null
+      }
 
+      console.log('Requesting camera with facing mode:', facing)
+      
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          facingMode: facing,
-          width: { ideal: 480, max: 640 },
-          height: { ideal: 640, max: 960 },
-          frameRate: { ideal: 24, max: 30 }
-        },
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-        }
+        video: { facingMode: facing },
+        audio: true
       })
 
       streamRef.current = stream
+      console.log('Stream obtained:', stream.id)
 
+      // If videoRef exists (e.g., when switching camera in recording mode), attach immediately
       if (videoRef.current) {
+        console.log('VideoRef exists, attaching stream directly')
         videoRef.current.srcObject = stream
         try {
           await videoRef.current.play()
           setIsVideoPlaying(true)
         } catch (e) {
-          console.log('Initial play failed:', e)
+          console.log('Direct play failed, will retry:', e)
         }
       }
-
+      
+      // Mark camera as ready - useEffect will handle attachment if videoRef wasn't ready
       setCameraReady(true)
       return true
     } catch (err: any) {
       console.error('Camera error:', err)
       setCameraReady(false)
-
+      
       if (err.name === 'NotAllowedError') {
-        setError('Akses kamera ditolak. Silakan izinkan akses kamera di pengaturan browser.')
+        setError('Akses kamera ditolak. Izinkan akses kamera di browser.')
       } else if (err.name === 'NotFoundError') {
         setError('Kamera tidak ditemukan.')
       } else {
-        setError('Gagal mengakses kamera: ' + err.message)
+        setError(`Gagal mengakses kamera: ${err.message}`)
       }
       return false
     }
   }, [facingMode, stopAllTracks])
 
+  // Request permission
   const requestPermission = async () => {
     const success = await startCamera()
-    if (success) setStep('recording')
+    if (success) {
+      setStep('recording')
+    }
   }
 
+  // Switch camera
   const switchCamera = async () => {
     if (isRecording) return
     const newFacing = facingMode === 'user' ? 'environment' : 'user'
@@ -167,7 +153,8 @@ export default function RecordingFlow({ campaign }: { campaign: Campaign }) {
     await startCamera(newFacing)
   }
 
-  const handleStartRecording = useCallback(() => {
+  // Start recording
+  const handleStartRecording = async () => {
     if (!streamRef.current) {
       setError('Kamera belum siap.')
       return
@@ -175,40 +162,16 @@ export default function RecordingFlow({ campaign }: { campaign: Campaign }) {
 
     try {
       setError(null)
-      chunksRef.current = []
+      const RecordRTC = (await import('recordrtc')).default
 
-      const options: MediaRecorderOptions = {
-        videoBitsPerSecond: 800000,
-        audioBitsPerSecond: 64000,
-      }
-      
-      if (!isIOS() && !isSafari()) {
-        if (MediaRecorder.isTypeSupported('video/webm;codecs=vp9,opus')) {
-          options.mimeType = 'video/webm;codecs=vp9,opus'
-        } else if (MediaRecorder.isTypeSupported('video/webm')) {
-          options.mimeType = 'video/webm'
-        }
-      }
+      const recorder = new RecordRTC(streamRef.current, {
+        type: 'video',
+        mimeType: 'video/webm',
+        disableLogs: true,
+      })
 
-      const mediaRecorder = new MediaRecorder(streamRef.current, options)
-      mediaRecorderRef.current = mediaRecorder
-
-      mediaRecorder.ondataavailable = (event) => {
-        if (event.data && event.data.size > 0) {
-          chunksRef.current.push(event.data)
-        }
-      }
-
-      mediaRecorder.onerror = () => {
-        setError('Terjadi kesalahan saat merekam.')
-        setIsRecording(false)
-      }
-
-      mediaRecorder.onstop = () => {
-        processRecordedChunks()
-      }
-
-      mediaRecorder.start(1000)
+      recorder.startRecording()
+      recorderRef.current = recorder
       setIsRecording(true)
       setRecordingTime(0)
 
@@ -217,212 +180,127 @@ export default function RecordingFlow({ campaign }: { campaign: Campaign }) {
       }, 1000)
 
     } catch (err: any) {
-      console.error('Start recording error:', err)
-      setError('Gagal memulai rekaman: ' + err.message)
+      setError(`Gagal memulai rekaman: ${err.message}`)
     }
-  }, [isIOS, isSafari])
+  }
 
-  const processRecordedChunks = useCallback(() => {
-    if (chunksRef.current.length === 0) {
-      setError('Tidak ada data video. Silakan coba lagi.')
-      return
-    }
+  // Stop recording
+  const handleStopRecording = () => {
+    if (!recorderRef.current) return
 
-    const mimeType = chunksRef.current[0]?.type || 'video/mp4'
-    const blob = new Blob(chunksRef.current, { type: mimeType })
-
-    if (blob.size < 1000) {
-      setError('Video terlalu pendek. Rekam minimal 2 detik.')
-      return
-    }
-
-    const url = URL.createObjectURL(blob)
-    setRecordedBlob(blob)
-    setRecordedVideoUrl(url)
-    setStep('preview')
-  }, [])
-
-  const handleStopRecording = useCallback(() => {
     if (timerRef.current) {
       clearInterval(timerRef.current)
       timerRef.current = null
     }
 
-    setIsRecording(false)
+    recorderRef.current.stopRecording(() => {
+      const blob = recorderRef.current.getBlob()
+      const url = URL.createObjectURL(blob)
+      setRecordedBlob(blob)
+      setRecordedVideoUrl(url)
+      setIsRecording(false)
+      setStep('preview')
+    })
+  }
 
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
-      mediaRecorderRef.current.stop()
-    } else {
-      processRecordedChunks()
-    }
-  }, [processRecordedChunks])
-
+  // Re-record
   const handleReRecord = async () => {
     if (recordedVideoUrl) URL.revokeObjectURL(recordedVideoUrl)
     setRecordedBlob(null)
     setRecordedVideoUrl(null)
     setRecordingTime(0)
     setError(null)
-    chunksRef.current = []
-    mediaRecorderRef.current = null
+    recorderRef.current = null
 
+    // Start camera first
     const success = await startCamera()
+    // Then change step - useEffect will handle stream attachment
     if (success) setStep('recording')
   }
 
+  // Upload video
   const uploadVideo = async () => {
-    if (!recordedBlob || isUploading) return
+    if (!recordedBlob) {
+      setError('Video tidak ditemukan.')
+      return
+    }
 
-    setIsUploading(true)
     setStep('uploading')
     setUploadProgress(0)
-    setError(null)
-    setUploadStatus('Mempersiapkan upload...')
 
     try {
-      setUploadStatus('Mendapatkan izin upload...')
-      const signatureRes = await fetch('/api/cloudinary/signature', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ campaignId: campaign.id })
-      })
-
-      if (!signatureRes.ok) {
-        throw new Error('Gagal mendapatkan izin upload')
-      }
-
-      const { signature, timestamp, folder, cloudName, apiKey } = await signatureRes.json()
-      
-      setUploadProgress(10)
-      setUploadStatus('Mengunggah ke cloud...')
-
       const formData = new FormData()
-      formData.append('file', recordedBlob)
-      formData.append('api_key', apiKey)
-      formData.append('timestamp', timestamp.toString())
-      formData.append('signature', signature)
-      formData.append('folder', folder)
+      formData.append('video', recordedBlob, 'testimonial.webm')
+      formData.append('campaignId', campaign.id)
 
-      const xhr = new XMLHttpRequest()
-      
-      const uploadPromise = new Promise<any>((resolve, reject) => {
-        xhr.upload.onprogress = (event) => {
-          if (event.lengthComputable) {
-            const percent = Math.round((event.loaded / event.total) * 80) + 10
-            setUploadProgress(percent)
-          }
-        }
+      const progressInterval = setInterval(() => {
+        setUploadProgress(prev => Math.min(prev + 10, 90))
+      }, 500)
 
-        xhr.onload = () => {
-          if (xhr.status === 200) {
-            resolve(JSON.parse(xhr.responseText))
-          } else {
-            reject(new Error('Upload ke Cloudinary gagal'))
-          }
-        }
-
-        xhr.onerror = () => reject(new Error('Network error'))
-
-        xhr.open('POST', `https://api.cloudinary.com/v1_1/${cloudName}/video/upload`)
-        xhr.send(formData)
-      })
-
-      const cloudinaryResult = await uploadPromise
-      console.log('Cloudinary result:', cloudinaryResult)
-
-      setUploadProgress(95)
-      setUploadStatus('Menyimpan data...')
-
-      const saveRes = await fetch('/api/testimonials/save', {
+      const response = await fetch('/api/testimonials/upload', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          campaignId: campaign.id,
-          videoUrl: cloudinaryResult.secure_url,
-          publicId: cloudinaryResult.public_id,
-          duration: cloudinaryResult.duration,
-          fileSize: cloudinaryResult.bytes
-        })
+        body: formData
       })
 
-      if (!saveRes.ok) {
-        throw new Error('Gagal menyimpan data')
+      clearInterval(progressInterval)
+
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.error || 'Upload failed')
       }
 
       setUploadProgress(100)
-      setUploadStatus('Selesai!')
       stopAllTracks()
-      
-      setTimeout(() => {
-        setStep('success')
-        setIsUploading(false)
-      }, 500)
+
+      setTimeout(() => setStep('success'), 500)
 
     } catch (err: any) {
-      console.error('Upload error:', err)
-      setError(err.message || 'Gagal mengunggah video.')
+      setError(err.message || 'Gagal mengunggah.')
       setStep('preview')
-      setIsUploading(false)
     }
   }
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60)
     const secs = seconds % 60
-    return mins + ':' + secs.toString().padStart(2, '0')
+    return `${mins}:${secs.toString().padStart(2, '0')}`
   }
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="sticky top-0 z-30 bg-white border-b border-gray-100 px-4 py-3">
-        <div className="flex items-center gap-3 max-w-md mx-auto">
+      {/* Header */}
+      <div className="bg-white border-b border-gray-100 px-4 py-4">
+        <div className="max-w-lg mx-auto flex items-center gap-3">
           {campaign.business.logo ? (
             <Image src={campaign.business.logo} alt={campaign.business.name} width={40} height={40} className="w-10 h-10 rounded-lg object-cover" />
           ) : (
-            <div className="w-10 h-10 bg-red-500 rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-sm">{campaign.business.name.charAt(0)}</span>
+            <div className="w-10 h-10 bg-[#FDC435] rounded-lg flex items-center justify-center">
+              <span className="font-bold text-black">{campaign.business.name.charAt(0)}</span>
             </div>
           )}
           <div>
-            <h1 className="font-semibold text-black">{campaign.business.name}</h1>
+            <p className="font-semibold text-black">{campaign.business.name}</p>
             <p className="text-xs text-gray-500">Video Testimonial</p>
           </div>
         </div>
       </div>
 
-      <div className="max-w-md mx-auto">
+      <div className="max-w-lg mx-auto px-4 py-6">
+        {/* Intro */}
         {step === 'intro' && (
-          <div className="p-4 pt-6">
-            <div className="text-center mb-6">
-              <div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Video className="w-10 h-10 text-blue-600" />
-              </div>
-              <h1 className="text-2xl font-bold text-black mb-2">Halo, {campaign.customerName}! 👋</h1>
-              <p className="text-gray-600">{campaign.business.name} mengundang Anda untuk berbagi pengalaman</p>
+          <div className="text-center">
+            <div className="w-20 h-20 bg-[#FDC435] rounded-full flex items-center justify-center mx-auto mb-6">
+              <Video className="w-10 h-10 text-black" />
             </div>
-
-            {campaign.productImage && (
-              <div className="rounded-2xl overflow-hidden mb-6">
-                <Image src={campaign.productImage} alt={campaign.brandName} width={400} height={300} className="w-full h-48 object-cover" />
-              </div>
-            )}
-
-            <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 mb-6">
-              <h2 className="font-semibold text-black mb-3">📝 Yang perlu Anda sampaikan:</h2>
-              <p className="text-gray-700 leading-relaxed bg-gray-50 rounded-xl p-4 text-sm">{campaign.testimonialScript}</p>
-              {campaign.gestureGuide && (
-                <div className="mt-4 p-3 bg-yellow-50 rounded-xl">
-                  <p className="text-sm text-yellow-800">💡 <strong>Tip:</strong> {campaign.gestureGuide}</p>
-                </div>
-              )}
-            </div>
-
-            <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 mb-6">
-              <h2 className="font-semibold text-black mb-4">Langkah-langkah:</h2>
+            <h1 className="text-2xl font-bold text-black mb-2">Halo, {campaign.customerName}! 👋</h1>
+            <p className="text-gray-600 mb-8">Terima kasih telah bersedia memberikan testimonial untuk <strong>{campaign.brandName}</strong></p>
+            
+            <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 mb-6 text-left">
+              <h2 className="font-semibold text-black mb-4">Panduan Singkat:</h2>
               <div className="space-y-3">
-                {['Izinkan akses kamera & mikrofon', 'Rekam video testimoni (maks 60 detik)', 'Preview dan kirim'].map((text, i) => (
+                {['Izinkan akses kamera dan mikrofon', 'Ikuti script yang tersedia', 'Rekam video (30-60 detik)', 'Kirim video Anda'].map((text, i) => (
                   <div key={i} className="flex items-start gap-3">
-                    <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+                    <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
                       <span className="text-xs font-bold text-blue-600">{i + 1}</span>
                     </div>
                     <p className="text-sm text-gray-600">{text}</p>
@@ -431,14 +309,15 @@ export default function RecordingFlow({ campaign }: { campaign: Campaign }) {
               </div>
             </div>
             
-            <button onClick={() => setStep('permission')} className="w-full bg-black text-white py-4 rounded-full font-semibold flex items-center justify-center gap-2 active:scale-95 transition-transform">
+            <button onClick={() => setStep('permission')} className="w-full bg-black text-white py-4 rounded-full font-semibold flex items-center justify-center gap-2 hover:bg-gray-800">
               Mulai Rekam <ChevronRight className="w-5 h-5" />
             </button>
           </div>
         )}
 
+        {/* Permission */}
         {step === 'permission' && (
-          <div className="p-4 pt-8 text-center">
+          <div className="text-center">
             <div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-6">
               <Camera className="w-10 h-10 text-blue-600" />
             </div>
@@ -446,7 +325,7 @@ export default function RecordingFlow({ campaign }: { campaign: Campaign }) {
             <p className="text-gray-600 mb-8">Kami memerlukan akses ke kamera dan mikrofon</p>
             
             {error && (
-              <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-6 text-left">
+              <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-6">
                 <p className="text-sm text-red-600">{error}</p>
               </div>
             )}
@@ -462,130 +341,121 @@ export default function RecordingFlow({ campaign }: { campaign: Campaign }) {
               </div>
             </div>
             
-            <button onClick={requestPermission} className="w-full bg-black text-white py-4 rounded-full font-semibold active:scale-95 transition-transform">
+            <button onClick={requestPermission} className="w-full bg-black text-white py-4 rounded-full font-semibold hover:bg-gray-800">
               Izinkan Akses
             </button>
           </div>
         )}
 
+        {/* Recording */}
         {step === 'recording' && (
-          <div className="relative" style={{ height: 'calc(100vh - 64px)' }}>
-            <div className="absolute inset-0">
+          <div>
+            <div className="relative rounded-2xl overflow-hidden bg-gray-900 mb-4 aspect-[3/4]">
+              {/* Video element with event handlers */}
               <video
                 ref={videoRef}
                 autoPlay
                 muted
                 playsInline
-                onPlaying={() => setIsVideoPlaying(true)}
+                onPlaying={() => {
+                  console.log('Video onPlaying event fired')
+                  setIsVideoPlaying(true)
+                }}
+                onCanPlay={() => {
+                  console.log('Video onCanPlay event fired')
+                }}
                 className="w-full h-full object-cover"
-                style={{ transform: facingMode === 'user' ? 'scaleX(-1)' : 'none' }}
+                style={{ 
+                  transform: facingMode === 'user' ? 'scaleX(-1)' : 'scaleX(1)',
+                  opacity: isVideoPlaying ? 1 : 0,
+                  transition: 'opacity 0.3s ease'
+                }}
               />
 
-              {!isVideoPlaying && (
+              {/* Loading overlay - shown when video not playing yet */}
+              {!isVideoPlaying && cameraReady && (
                 <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-900">
-                  <div className="w-10 h-10 border-4 border-white/30 border-t-white rounded-full animate-spin mb-3" />
+                  <div className="w-10 h-10 border-3 border-white/30 border-t-white rounded-full animate-spin mb-3" />
                   <p className="text-white text-sm">Menyiapkan kamera...</p>
                 </div>
               )}
 
-              <div className="absolute top-4 left-4 right-4 flex items-center justify-between">
-                <div className="flex items-center gap-2 bg-black/50 backdrop-blur-sm text-white px-4 py-2 rounded-full">
-                  <div className={`w-2.5 h-2.5 rounded-full ${isRecording ? 'bg-red-500 animate-pulse' : 'bg-green-400'}`} />
-                  <span className="text-sm font-medium">
-                    {isRecording ? 'recording' : 'Siap merekam'}
+              {/* Camera status indicator */}
+              {cameraReady && !isRecording && (
+                <div className="absolute top-4 left-4 flex items-center gap-2 bg-black/60 text-white px-3 py-1.5 rounded-full z-10">
+                  <div className={`w-2 h-2 rounded-full ${isVideoPlaying ? 'bg-green-400' : 'bg-yellow-400'} animate-pulse`} />
+                  <span className="text-xs font-medium">
+                    {isVideoPlaying ? 'Kamera aktif' : 'Menghubungkan...'}
                   </span>
                 </div>
+              )}
 
-                <div className="bg-black/50 backdrop-blur-sm text-white px-4 py-2 rounded-full">
-                  <span className="text-sm font-bold">
-                    {isRecording ? formatTime(recordingTime) : formatTime(MAX_DURATION)}
-                  </span>
+              {/* Recording indicator */}
+              {isRecording && (
+                <div className="absolute top-4 left-4 flex items-center gap-2 bg-red-500 text-white px-3 py-1.5 rounded-full z-10">
+                  <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
+                  <span className="text-sm font-medium">{formatTime(recordingTime)}</span>
                 </div>
-              </div>
+              )}
 
+              {/* Switch camera */}
               {hasMultipleCameras && !isRecording && (
                 <button
                   onClick={switchCamera}
-                  className="absolute top-20 right-4 w-12 h-12 bg-black/50 backdrop-blur-sm rounded-full flex items-center justify-center text-white active:bg-black/70"
+                  className="absolute top-4 right-4 w-10 h-10 bg-black/60 rounded-full flex items-center justify-center text-white hover:bg-black/80 z-10"
                 >
                   <RefreshCw className="w-5 h-5" />
                 </button>
               )}
+            </div>
 
-              <div className="absolute right-4 top-1/2 -translate-y-1/2 flex flex-col items-center">
-                {!isRecording ? (
-                  <>
-                    <button
-                      onClick={handleStartRecording}
-                      disabled={!cameraReady || !isVideoPlaying}
-                      className="w-16 h-16 rounded-full flex items-center justify-center disabled:opacity-50 active:scale-90 transition-transform"
-                      style={{
-                        background: 'linear-gradient(135deg, #ef4444 0%, #b91c1c 100%)',
-                        boxShadow: '0 4px 15px rgba(239, 68, 68, 0.4), inset 0 0 0 3px rgba(255,255,255,0.3)'
-                      }}
-                    >
-                      <div className="w-6 h-6 bg-white rounded-full" />
-                    </button>
-                    <p className="text-white text-xs mt-2 text-center font-medium drop-shadow-lg">
-                      tap for<br/>recording
-                    </p>
-                  </>
-                ) : (
-                  <>
-                    <button
-                      onClick={handleStopRecording}
-                      className="w-16 h-16 rounded-full flex items-center justify-center active:scale-90 transition-transform animate-pulse"
-                      style={{
-                        background: 'linear-gradient(135deg, #ef4444 0%, #b91c1c 100%)',
-                        boxShadow: '0 4px 15px rgba(239, 68, 68, 0.4), inset 0 0 0 3px rgba(255,255,255,0.3)'
-                      }}
-                    >
-                      <Square className="w-6 h-6 text-white fill-white" />
-                    </button>
-                    <p className="text-white text-xs mt-2 text-center font-medium drop-shadow-lg">
-                      tap to<br/>stop
-                    </p>
-                  </>
-                )}
+            {error && (
+              <div className="bg-red-50 border border-red-200 rounded-xl p-3 mb-4">
+                <p className="text-xs text-red-600">{error}</p>
               </div>
+            )}
 
-              <div className="absolute bottom-0 left-0 right-0 p-4">
-                <div className="bg-white/90 backdrop-blur-sm rounded-2xl p-4 shadow-lg max-h-40 overflow-hidden">
-                  <p className="text-xs text-gray-500 font-semibold mb-2">Script :</p>
-                  <div className="max-h-16 overflow-y-auto">
-                    <p className="text-sm text-gray-700 leading-relaxed">{campaign.testimonialScript}</p>
-                  </div>
-                  {campaign.gestureGuide && (
-                    <div className="mt-2 pt-2 border-t border-gray-200">
-                      <p className="text-xs text-yellow-600">💡 {campaign.gestureGuide}</p>
-                    </div>
-                  )}
-                </div>
+            <div className="bg-white rounded-xl p-4 border border-gray-200 mb-4 max-h-32 overflow-y-auto">
+              <p className="text-xs text-gray-500 mb-2">📝 Script:</p>
+              <p className="text-sm text-gray-700 leading-relaxed">{campaign.testimonialScript}</p>
+            </div>
+
+            {campaign.gestureGuide && (
+              <div className="bg-yellow-50 rounded-xl p-3 border border-yellow-200 mb-4">
+                <p className="text-xs text-yellow-700">💡 Tip: {campaign.gestureGuide}</p>
               </div>
+            )}
 
-              {error && (
-                <div className="absolute top-32 left-4 right-4">
-                  <div className="bg-red-500/90 backdrop-blur-sm rounded-xl p-3">
-                    <p className="text-sm text-white text-center">{error}</p>
-                  </div>
-                </div>
+            <div className="flex justify-center">
+              {!isRecording ? (
+                <button
+                  onClick={handleStartRecording}
+                  disabled={!cameraReady}
+                  className="w-20 h-20 bg-red-500 rounded-full flex items-center justify-center hover:bg-red-600 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all hover:scale-105"
+                >
+                  <div className="w-8 h-8 bg-white rounded-full" />
+                </button>
+              ) : (
+                <button
+                  onClick={handleStopRecording}
+                  className="w-20 h-20 bg-red-500 rounded-full flex items-center justify-center hover:bg-red-600 shadow-lg animate-pulse"
+                >
+                  <Square className="w-8 h-8 text-white fill-white" />
+                </button>
               )}
             </div>
+            <p className="text-center text-sm text-gray-500 mt-3">
+              {isRecording ? 'Ketuk untuk berhenti' : cameraReady ? 'Ketuk untuk rekam' : 'Menunggu kamera...'}
+            </p>
           </div>
         )}
 
+        {/* Preview */}
         {step === 'preview' && recordedVideoUrl && (
-          <div className="p-4 pt-6">
+          <div>
             <h2 className="text-xl font-bold text-black mb-4 text-center">Preview Video</h2>
-            
             <div className="rounded-2xl overflow-hidden bg-black mb-4 aspect-[3/4]">
               <video src={recordedVideoUrl} controls playsInline className="w-full h-full object-cover" />
-            </div>
-
-            <div className="text-center mb-4">
-              <span className="bg-gray-100 text-gray-600 px-4 py-2 rounded-full text-sm font-medium">
-                Durasi: {formatTime(recordingTime)}
-              </span>
             </div>
             
             {error && (
@@ -595,33 +465,33 @@ export default function RecordingFlow({ campaign }: { campaign: Campaign }) {
             )}
             
             <div className="flex gap-3">
-              <button onClick={handleReRecord} disabled={isUploading} className="flex-1 bg-gray-100 text-gray-700 py-4 rounded-full font-semibold flex items-center justify-center gap-2 active:bg-gray-200 disabled:opacity-50">
+              <button onClick={handleReRecord} className="flex-1 bg-gray-100 text-gray-700 py-4 rounded-full font-semibold flex items-center justify-center gap-2 hover:bg-gray-200">
                 <RotateCcw className="w-5 h-5" /> Rekam Ulang
               </button>
-              <button onClick={uploadVideo} disabled={isUploading} className="flex-1 bg-black text-white py-4 rounded-full font-semibold flex items-center justify-center gap-2 active:bg-gray-800 disabled:opacity-50">
-                <Upload className="w-5 h-5" /> {isUploading ? 'Mengirim...' : 'Kirim'}
+              <button onClick={uploadVideo} className="flex-1 bg-black text-white py-4 rounded-full font-semibold flex items-center justify-center gap-2 hover:bg-gray-800">
+                <Upload className="w-5 h-5" /> Kirim
               </button>
             </div>
           </div>
         )}
 
+        {/* Uploading */}
         {step === 'uploading' && (
-          <div className="p-4 pt-12 text-center">
+          <div className="text-center py-12">
             <div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-6">
               <Upload className="w-10 h-10 text-blue-600 animate-pulse" />
             </div>
             <h2 className="text-xl font-bold text-black mb-2">Mengunggah Video...</h2>
-            <p className="text-sm text-gray-500 mb-2">{uploadStatus}</p>
-            <p className="text-xs text-gray-400 mb-4">Durasi: {formatTime(recordingTime)}</p>
-            <div className="w-full bg-gray-200 rounded-full h-3 mb-2">
-              <div className="bg-blue-500 h-3 rounded-full transition-all duration-300" style={{ width: uploadProgress + '%' }} />
+            <div className="w-full bg-gray-200 rounded-full h-2 mb-2 mt-6">
+              <div className="bg-blue-500 h-2 rounded-full transition-all" style={{ width: `${uploadProgress}%` }} />
             </div>
             <p className="text-sm text-gray-500">{uploadProgress}%</p>
           </div>
         )}
 
+        {/* Success */}
         {step === 'success' && (
-          <div className="p-4 pt-12 text-center">
+          <div className="text-center py-12">
             <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
               <CheckCircle className="w-10 h-10 text-green-600" />
             </div>
