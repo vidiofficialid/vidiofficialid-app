@@ -41,7 +41,12 @@ export async function signUp(formData: FormData) {
     return { error: error.message }
   }
 
-  await sendWelcomeEmail(email, name)
+  // Email sending is optional - won't block registration
+  try {
+    await sendWelcomeEmail(email, name)
+  } catch (emailError) {
+    console.log('Welcome email could not be sent:', emailError)
+  }
 
   return { 
     success: true, 
