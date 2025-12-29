@@ -8,9 +8,19 @@ export async function GET(request: Request) {
 
   if (code) {
     const supabase = await createClient()
-    const { error } = await supabase.auth.exchangeCodeForSession(code)
+    const { data, error } = await supabase.auth.exchangeCodeForSession(code)
     
-    if (!error) {
+    if (!error && data.user) {
+      // Check if this is a new user (email confirmation)
+      const isNewUser = data.user.created_at === data.user.updated_at ||
+                        new Date(data.user.created_at).getTime() > Date.now() - 60000
+
+      if (isNewUser) {
+        // Redirect to confirmation page for new users
+        const email = encodeURIComponent(data.user.email || '')
+        return NextResponse.redirect(`${origin}/confirm?email=${email}`)
+      }
+      
       return NextResponse.redirect(`${origin}${next}`)
     }
   }
