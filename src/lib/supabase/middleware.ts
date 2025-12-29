@@ -38,16 +38,22 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser()
 
-  const isAuthPage = request.nextUrl.pathname.startsWith('/login') ||
-                     request.nextUrl.pathname.startsWith('/register') ||
-                     request.nextUrl.pathname.startsWith('/forgot-password') ||
-                     request.nextUrl.pathname.startsWith('/reset-password')
-  
-  const isProtectedRoute = request.nextUrl.pathname.startsWith('/dashboard')
-  const isEditorRoute = request.nextUrl.pathname.startsWith('/editor-blog')
-  const isAuthCallback = request.nextUrl.pathname.startsWith('/auth/callback')
+  const pathname = request.nextUrl.pathname
+  const isAuthPage = pathname.startsWith('/login') ||
+                     pathname.startsWith('/register') ||
+                     pathname.startsWith('/forgot-password')
+  const isResetPassword = pathname.startsWith('/reset-password')
+  const isProtectedRoute = pathname.startsWith('/dashboard')
+  const isEditorRoute = pathname.startsWith('/editor-blog')
+  const isAuthCallback = pathname.startsWith('/auth/callback')
 
+  // Allow auth callback to proceed
   if (isAuthCallback) {
+    return supabaseResponse
+  }
+
+  // Allow reset-password page (user needs to set new password)
+  if (isResetPassword) {
     return supabaseResponse
   }
 
@@ -55,7 +61,7 @@ export async function updateSession(request: NextRequest) {
   if (isProtectedRoute && !user) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
-    url.searchParams.set('redirect', request.nextUrl.pathname)
+    url.searchParams.set('redirect', pathname)
     return NextResponse.redirect(url)
   }
 
@@ -64,7 +70,7 @@ export async function updateSession(request: NextRequest) {
     if (!user) {
       const url = request.nextUrl.clone()
       url.pathname = '/login'
-      url.searchParams.set('redirect', request.nextUrl.pathname)
+      url.searchParams.set('redirect', pathname)
       return NextResponse.redirect(url)
     }
 
@@ -84,9 +90,39 @@ export async function updateSession(request: NextRequest) {
     }
   }
 
+  // Redirect authenticated users away from auth pages
   if (isAuthPage && user) {
     const url = request.nextUrl.clone()
-    url.pathname = '/dashboard'
+    const redirectTo = request.nextUrl.searchParams.get('redirect')
+    
+    // Check user role to determine redirect
+    const { data } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single()
+
+    const profile = data as { role: string } | null
+
+    // If redirect param exists and user has permission, use it
+    if (redirectTo) {
+      if (redirectTo.startsWith('/editor-blog') && (profile?.role === 'editor' || profile?.role === 'admin')) {
+        url.pathname = redirectTo
+      } else if (!redirectTo.startsWith('/editor-blog')) {
+        url.pathname = redirectTo
+      } else {
+        url.pathname = '/dashboard'
+      }
+    } else {
+      // Default redirect based on role
+      if (profile?.role === 'editor' || profile?.role === 'admin') {
+        url.pathname = '/editor-blog'
+      } else {
+        url.pathname = '/dashboard'
+      }
+    }
+    
+    url.search = ''
     return NextResponse.redirect(url)
   }
 
