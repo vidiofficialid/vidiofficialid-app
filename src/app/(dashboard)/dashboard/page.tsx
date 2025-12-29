@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { Button } from '@/components/ui/button'
 import { signOut } from '@/lib/actions/auth'
+import type { Profile } from '@/types/database'
 
 export default async function DashboardPage() {
   const supabase = await createClient()
@@ -11,11 +12,13 @@ export default async function DashboardPage() {
     redirect('/login')
   }
 
-  const { data: profile } = await supabase
+  const { data } = await supabase
     .from('profiles')
     .select('*')
     .eq('id', user.id)
     .single()
+
+  const profile = data as Profile | null
 
   return (
     <div className="min-h-screen bg-gray-50">
