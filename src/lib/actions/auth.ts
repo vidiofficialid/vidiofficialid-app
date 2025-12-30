@@ -64,7 +64,7 @@ export async function signIn(formData: FormData) {
     return { error: 'Email dan password harus diisi' }
   }
 
-  const { error } = await supabase.auth.signInWithPassword({
+  const { data, error } = await supabase.auth.signInWithPassword({
     email,
     password,
   })
@@ -79,7 +79,18 @@ export async function signIn(formData: FormData) {
     return { error: error.message }
   }
 
-  redirect('/dashboard')
+  // Check user role to determine redirect
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', data.user.id)
+    .single()
+
+  if (profile?.role === 'editor' || profile?.role === 'admin') {
+    redirect('/editor-blog')
+  } else {
+    redirect('/dashboard')
+  }
 }
 
 export async function signInWithGoogle() {
