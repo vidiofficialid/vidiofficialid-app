@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import Image from 'next/image'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import {
   LayoutDashboard,
   FileText,
@@ -12,7 +12,7 @@ import {
   Home,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { signOut } from '@/lib/actions/auth'
+import { editorSignOut } from '@/lib/actions/editor-auth'
 
 const navItems = [
   {
@@ -39,6 +39,13 @@ const navItems = [
 
 export function EditorSidebar() {
   const pathname = usePathname()
+  const router = useRouter()
+
+  async function handleLogout() {
+    await editorSignOut()
+    router.push('/editor-blog/login')
+    router.refresh()
+  }
 
   return (
     <aside className="fixed left-0 top-0 z-40 h-screen w-64 bg-gray-900 text-white">
@@ -89,15 +96,14 @@ export function EditorSidebar() {
             <Home className="h-5 w-5" />
             Back to Site
           </Link>
-          <form action={signOut}>
-            <button
-              type="submit"
-              className="flex w-full items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium text-gray-300 hover:bg-gray-800 hover:text-white transition-colors"
-            >
-              <LogOut className="h-5 w-5" />
-              Logout
-            </button>
-          </form>
+          <button
+            type="button"
+            onClick={handleLogout}
+            className="flex w-full items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium text-gray-300 hover:bg-gray-800 hover:text-white transition-colors"
+          >
+            <LogOut className="h-5 w-5" />
+            Logout
+          </button>
         </div>
       </div>
     </aside>

@@ -39,12 +39,15 @@ export async function updateSession(request: NextRequest) {
   } = await supabase.auth.getUser()
 
   const pathname = request.nextUrl.pathname
+  
+  // Define route types
   const isAuthPage = pathname.startsWith('/login') ||
                      pathname.startsWith('/register') ||
                      pathname.startsWith('/forgot-password')
   const isResetPassword = pathname.startsWith('/reset-password')
   const isProtectedRoute = pathname.startsWith('/dashboard')
   const isEditorRoute = pathname.startsWith('/editor-blog')
+  const isEditorLoginPage = pathname === '/editor-blog/login'
   const isAuthCallback = pathname.startsWith('/auth/callback')
 
   // Allow auth callback to proceed
@@ -57,20 +60,33 @@ export async function updateSession(request: NextRequest) {
     return supabaseResponse
   }
 
-  // Protected routes for authenticated users (dashboard)
-  if (isProtectedRoute && !user) {
-    const url = request.nextUrl.clone()
-    url.pathname = '/login'
-    url.searchParams.set('redirect', pathname)
-    return NextResponse.redirect(url)
-  }
-
-  // Protected routes for editors only (editor-blog)
+  // EDITOR ROUTES HANDLING
   if (isEditorRoute) {
+    // Allow editor login page without auth
+    if (isEditorLoginPage) {
+      // If already logged in as editor, redirect to dashboard
+      if (user) {
+        const { data } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', user.id)
+          .single()
+
+        const profile = data as { role: string } | null
+
+        if (profile?.role === 'editor' || profile?.role === 'admin') {
+          const url = request.nextUrl.clone()
+          url.pathname = '/editor-blog'
+          return NextResponse.redirect(url)
+        }
+      }
+      return supabaseResponse
+    }
+
+    // For other editor routes, require auth
     if (!user) {
       const url = request.nextUrl.clone()
-      url.pathname = '/login'
-      url.searchParams.set('redirect', pathname)
+      url.pathname = '/editor-blog/login'
       return NextResponse.redirect(url)
     }
 
@@ -85,43 +101,25 @@ export async function updateSession(request: NextRequest) {
 
     if (profile?.role !== 'editor' && profile?.role !== 'admin') {
       const url = request.nextUrl.clone()
-      url.pathname = '/dashboard'
+      url.pathname = '/editor-blog/login'
       return NextResponse.redirect(url)
     }
+
+    return supabaseResponse
+  }
+
+  // Protected routes for authenticated users (dashboard)
+  if (isProtectedRoute && !user) {
+    const url = request.nextUrl.clone()
+    url.pathname = '/login'
+    url.searchParams.set('redirect', pathname)
+    return NextResponse.redirect(url)
   }
 
   // Redirect authenticated users away from auth pages
   if (isAuthPage && user) {
     const url = request.nextUrl.clone()
-    const redirectTo = request.nextUrl.searchParams.get('redirect')
-    
-    // Check user role to determine redirect
-    const { data } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single()
-
-    const profile = data as { role: string } | null
-
-    // If redirect param exists and user has permission, use it
-    if (redirectTo) {
-      if (redirectTo.startsWith('/editor-blog') && (profile?.role === 'editor' || profile?.role === 'admin')) {
-        url.pathname = redirectTo
-      } else if (!redirectTo.startsWith('/editor-blog')) {
-        url.pathname = redirectTo
-      } else {
-        url.pathname = '/dashboard'
-      }
-    } else {
-      // Default redirect based on role
-      if (profile?.role === 'editor' || profile?.role === 'admin') {
-        url.pathname = '/editor-blog'
-      } else {
-        url.pathname = '/dashboard'
-      }
-    }
-    
+    url.pathname = '/dashboard'
     url.search = ''
     return NextResponse.redirect(url)
   }
