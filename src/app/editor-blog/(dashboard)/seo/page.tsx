@@ -5,39 +5,105 @@ import { Save, Loader2, Globe } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { createBrowserClient } from '@supabase/ssr'
 
 interface SeoSettings {
   title: string
   description: string
   keywords: string
-  ogImage: string
+  og_image: string
 }
 
 export default function SeoPage() {
   const [settings, setSettings] = useState<SeoSettings>({
-    title: 'VidiOfficial - Video Testimonial Platform',
-    description:
-      'Collect authentic video testimonials from your customers with ease. The simple way to grow your business with real customer stories.',
-    keywords:
-      'video testimonial, testimonial platform, customer reviews, UMKM, small business',
-    ogImage: '',
+    title: '',
+    description: '',
+    keywords: '',
+    og_image: '',
   })
   const [saving, setSaving] = useState(false)
   const [loading, setLoading] = useState(true)
 
+  const supabase = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  )
+
+  // Load settings from database on mount
   useEffect(() => {
-    // TODO: Load settings from Supabase
-    setLoading(false)
+    loadSettings()
   }, [])
+
+  const loadSettings = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('seo_settings')
+        .select('*')
+        .eq('page_name', 'home')
+        .single()
+
+      if (error && error.code !== 'PGRST116') {
+        console.error('Error loading SEO settings:', error)
+      }
+
+      if (data) {
+        setSettings({
+          title: data.title || '',
+          description: data.description || '',
+          keywords: data.keywords || '',
+          og_image: data.og_image || '',
+        })
+      }
+    } catch (error) {
+      console.error('Error loading SEO settings:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const handleSave = async () => {
     setSaving(true)
     try {
-      // TODO: Save to Supabase seo_settings table
-      await new Promise((resolve) => setTimeout(resolve, 1000))
+      // Check if record exists
+      const { data: existing } = await supabase
+        .from('seo_settings')
+        .select('id')
+        .eq('page_name', 'home')
+        .single()
+
+      if (existing) {
+        // Update existing record
+        const { error } = await supabase
+          .from('seo_settings')
+          .update({
+            title: settings.title,
+            description: settings.description,
+            keywords: settings.keywords,
+            og_image: settings.og_image,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('page_name', 'home')
+
+        if (error) throw error
+      } else {
+        // Insert new record
+        const { error } = await supabase
+          .from('seo_settings')
+          .insert({
+            page_name: 'home',
+            title: settings.title,
+            description: settings.description,
+            keywords: settings.keywords,
+            og_image: settings.og_image,
+          })
+
+        if (error) throw error
+      }
+
       alert('SEO settings saved successfully!')
     } catch (error) {
       console.error('Failed to save SEO settings:', error)
+      alert('Failed to save SEO settings. Please try again.')
     } finally {
       setSaving(false)
     }
@@ -164,19 +230,31 @@ export default function SeoPage() {
 
         {/* OG Image */}
         <div className="space-y-2">
-          <Label htmlFor="ogImage">Open Graph Image</Label>
+          <Label htmlFor="og_image">Open Graph Image</Label>
           <Input
-            id="ogImage"
+            id="og_image"
             type="url"
-            value={settings.ogImage}
+            value={settings.og_image}
             onChange={(e) =>
-              setSettings({ ...settings, ogImage: e.target.value })
+              setSettings({ ...settings, og_image: e.target.value })
             }
             placeholder="https://example.com/og-image.jpg"
           />
           <p className="text-sm text-gray-500">
             Image displayed when sharing on social media (1200x630px recommended)
           </p>
+          {settings.og_image && (
+            <div className="mt-2">
+              <img 
+                src={settings.og_image} 
+                alt="OG Image Preview" 
+                className="max-w-xs rounded-lg border"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).style.display = 'none'
+                }}
+              />
+            </div>
+          )}
         </div>
       </div>
 

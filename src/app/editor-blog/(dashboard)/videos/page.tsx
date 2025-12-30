@@ -5,6 +5,7 @@ import { Video, Plus, Trash2, GripVertical, Loader2, Save } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { createBrowserClient } from '@supabase/ssr'
 
 interface VideoItem {
   id: string
@@ -14,9 +15,42 @@ interface VideoItem {
 
 export default function VideosPage() {
   const [videos, setVideos] = useState<VideoItem[]>([])
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [newVideo, setNewVideo] = useState({ url: '', title: '' })
+
+  const supabase = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  )
+
+  // Load videos from database on mount
+  useEffect(() => {
+    loadVideos()
+  }, [])
+
+  const loadVideos = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('landing_content')
+        .select('content')
+        .eq('section_name', 'video_slider')
+        .single()
+
+      if (error && error.code !== 'PGRST116') {
+        console.error('Error loading videos:', error)
+      }
+
+      if (data?.content) {
+        const content = data.content as { videos?: VideoItem[] }
+        setVideos(content.videos || [])
+      }
+    } catch (error) {
+      console.error('Error loading videos:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const handleAddVideo = () => {
     if (!newVideo.url.trim()) return
@@ -33,14 +67,53 @@ export default function VideosPage() {
   const handleSave = async () => {
     setSaving(true)
     try {
-      // TODO: Save to Supabase landing_content table
-      await new Promise((resolve) => setTimeout(resolve, 1000))
+      // Check if record exists
+      const { data: existing } = await supabase
+        .from('landing_content')
+        .select('id')
+        .eq('section_name', 'video_slider')
+        .single()
+
+      const contentData = { videos }
+
+      if (existing) {
+        // Update existing record
+        const { error } = await supabase
+          .from('landing_content')
+          .update({ 
+            content: contentData,
+            updated_at: new Date().toISOString()
+          })
+          .eq('section_name', 'video_slider')
+
+        if (error) throw error
+      } else {
+        // Insert new record
+        const { error } = await supabase
+          .from('landing_content')
+          .insert({
+            section_name: 'video_slider',
+            content: contentData
+          })
+
+        if (error) throw error
+      }
+
       alert('Videos saved successfully!')
     } catch (error) {
       console.error('Failed to save videos:', error)
+      alert('Failed to save videos. Please try again.')
     } finally {
       setSaving(false)
     }
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="w-8 h-8 animate-spin text-gray-400" />
+      </div>
+    )
   }
 
   return (
@@ -96,25 +169,23 @@ export default function VideosPage() {
       <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-bold text-gray-900">Current Videos</h2>
-          {videos.length > 0 && (
-            <Button
-              onClick={handleSave}
-              disabled={saving}
-              className="bg-gray-900 text-white hover:bg-gray-800"
-            >
-              {saving ? (
-                <>
-                  <Loader2 className="w-5 h-5 animate-spin mr-2" />
-                  Saving...
-                </>
-              ) : (
-                <>
-                  <Save className="w-5 h-5 mr-2" />
-                  Save Changes
-                </>
-              )}
-            </Button>
-          )}
+          <Button
+            onClick={handleSave}
+            disabled={saving}
+            className="bg-gray-900 text-white hover:bg-gray-800"
+          >
+            {saving ? (
+              <>
+                <Loader2 className="w-5 h-5 animate-spin mr-2" />
+                Saving...
+              </>
+            ) : (
+              <>
+                <Save className="w-5 h-5 mr-2" />
+                Save Changes
+              </>
+            )}
+          </Button>
         </div>
 
         {videos.length > 0 ? (
@@ -130,7 +201,7 @@ export default function VideosPage() {
                 <div className="w-12 h-12 bg-gray-200 rounded-lg flex items-center justify-center">
                   <Video className="w-6 h-6 text-gray-500" />
                 </div>
-                <div className="flex-1">
+                <div className="flex-1 min-w-0">
                   <p className="font-medium text-gray-900">
                     {video.title || 'Untitled Video'}
                   </p>
@@ -170,7 +241,7 @@ export default function VideosPage() {
           <li>• Drag and drop to reorder videos</li>
           <li>• Supported formats: MP4, WebM</li>
           <li>• Recommended aspect ratio: 16:9</li>
-          <li>• Maximum file size: 50MB per video</li>
+          <li>• Use Cloudinary or similar CDN for video hosting</li>
         </ul>
       </div>
     </div>
