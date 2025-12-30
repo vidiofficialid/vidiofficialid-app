@@ -22,7 +22,7 @@ export async function signUp(formData: FormData) {
     return { error: 'Password minimal 6 karakter' }
   }
 
-  const { data, error } = await supabase.auth.signUp({
+  const { error } = await supabase.auth.signUp({
     email,
     password,
     options: {
@@ -80,11 +80,13 @@ export async function signIn(formData: FormData) {
   }
 
   // Check user role to determine redirect
-  const { data: profile } = await supabase
+  const { data: profileData } = await supabase
     .from('profiles')
     .select('role')
     .eq('id', data.user.id)
     .single()
+
+  const profile = profileData as { role: string } | null
 
   if (profile?.role === 'editor' || profile?.role === 'admin') {
     redirect('/editor-blog')
