@@ -126,90 +126,96 @@ export function VideoTestimonialSlider() {
           </p>
         </motion.div>
 
-        {/* Video Carousel */}
-        <div className="relative max-w-4xl mx-auto">
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={currentIndex}
-              initial={{ opacity: 0, x: 100 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -100 }}
-              transition={{ duration: 0.5 }}
-              className="relative rounded-2xl overflow-hidden shadow-2xl bg-gray-900 aspect-video"
-            >
-              {/* Video */}
-              <video
-                ref={videoRef}
-                src={videos[currentIndex]?.url}
-                className="w-full h-full object-cover"
-                playsInline
-                muted={isMuted}
-                loop
-                onPlay={() => setIsPlaying(true)}
-                onPause={() => setIsPlaying(false)}
-                onClick={togglePlay}
-              />
-
-              {/* Video Overlay */}
-              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent pointer-events-none" />
-
-              {/* Title Overlay */}
-              <div className="absolute bottom-0 left-0 right-0 p-6">
-                <h3 className="text-white text-xl font-semibold">
-                  {videos[currentIndex]?.title}
-                </h3>
-              </div>
-
-              {/* Play/Pause Overlay */}
-              <button
-                onClick={togglePlay}
-                className="absolute inset-0 flex items-center justify-center group"
-              >
-                <motion.div
-                  initial={{ scale: 0 }}
-                  animate={{ scale: isPlaying ? 0 : 1 }}
-                  className="w-20 h-20 bg-white/90 rounded-full flex items-center justify-center shadow-lg group-hover:bg-white transition-colors"
-                >
-                  {isPlaying ? (
-                    <Pause className="w-8 h-8 text-gray-900" />
-                  ) : (
-                    <Play className="w-8 h-8 text-gray-900 ml-1" />
-                  )}
-                </motion.div>
-              </button>
-
-              {/* Controls */}
-              <div className="absolute top-4 right-4 flex gap-2">
-                <button
-                  onClick={toggleMute}
-                  className="w-10 h-10 bg-black/50 hover:bg-black/70 rounded-full flex items-center justify-center transition-colors"
-                >
-                  {isMuted ? (
-                    <VolumeX className="w-5 h-5 text-white" />
-                  ) : (
-                    <Volume2 className="w-5 h-5 text-white" />
-                  )}
-                </button>
-              </div>
-            </motion.div>
-          </AnimatePresence>
-
-          {/* Navigation Arrows */}
+        {/* Video Carousel - Portrait Mode */}
+        <div className="relative flex justify-center items-center">
+          {/* Navigation Arrow Left */}
           {videos.length > 1 && (
-            <>
-              <button
-                onClick={handlePrevious}
-                className="absolute left-4 top-1/2 -translate-y-1/2 w-12 h-12 bg-white/90 hover:bg-white rounded-full shadow-lg flex items-center justify-center transition-all hover:scale-110 z-10"
+            <button
+              onClick={handlePrevious}
+              className="absolute left-0 md:left-[calc(50%-220px)] lg:left-[calc(50%-280px)] top-1/2 -translate-y-1/2 w-12 h-12 bg-white/90 hover:bg-white rounded-full shadow-lg flex items-center justify-center transition-all hover:scale-110 z-10"
+            >
+              <ChevronLeft className="w-6 h-6 text-gray-900" />
+            </button>
+          )}
+
+          {/* Video Container - Portrait Aspect Ratio (9:16) */}
+          <div className="w-full max-w-[320px] md:max-w-[360px] mx-auto">
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={currentIndex}
+                initial={{ opacity: 0, x: 100 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -100 }}
+                transition={{ duration: 0.5 }}
+                className="relative rounded-3xl overflow-hidden shadow-2xl bg-gray-900"
+                style={{ aspectRatio: '9/16' }}
               >
-                <ChevronLeft className="w-6 h-6 text-gray-900" />
-              </button>
-              <button
-                onClick={handleNext}
-                className="absolute right-4 top-1/2 -translate-y-1/2 w-12 h-12 bg-white/90 hover:bg-white rounded-full shadow-lg flex items-center justify-center transition-all hover:scale-110 z-10"
-              >
-                <ChevronRight className="w-6 h-6 text-gray-900" />
-              </button>
-            </>
+                {/* Video */}
+                <video
+                  ref={videoRef}
+                  src={videos[currentIndex]?.url}
+                  className="w-full h-full object-cover"
+                  playsInline
+                  muted={isMuted}
+                  loop
+                  onPlay={() => setIsPlaying(true)}
+                  onPause={() => setIsPlaying(false)}
+                  onClick={togglePlay}
+                />
+
+                {/* Video Overlay */}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent pointer-events-none" />
+
+                {/* Title Overlay */}
+                <div className="absolute bottom-0 left-0 right-0 p-5">
+                  <h3 className="text-white text-lg font-semibold">
+                    {videos[currentIndex]?.title}
+                  </h3>
+                </div>
+
+                {/* Play/Pause Overlay */}
+                <button
+                  onClick={togglePlay}
+                  className="absolute inset-0 flex items-center justify-center group"
+                >
+                  <motion.div
+                    initial={{ scale: 0 }}
+                    animate={{ scale: isPlaying ? 0 : 1 }}
+                    className="w-16 h-16 bg-white/90 rounded-full flex items-center justify-center shadow-lg group-hover:bg-white transition-colors"
+                  >
+                    {isPlaying ? (
+                      <Pause className="w-6 h-6 text-gray-900" />
+                    ) : (
+                      <Play className="w-6 h-6 text-gray-900 ml-1" />
+                    )}
+                  </motion.div>
+                </button>
+
+                {/* Controls */}
+                <div className="absolute top-4 right-4 flex gap-2">
+                  <button
+                    onClick={toggleMute}
+                    className="w-10 h-10 bg-black/50 hover:bg-black/70 rounded-full flex items-center justify-center transition-colors"
+                  >
+                    {isMuted ? (
+                      <VolumeX className="w-5 h-5 text-white" />
+                    ) : (
+                      <Volume2 className="w-5 h-5 text-white" />
+                    )}
+                  </button>
+                </div>
+              </motion.div>
+            </AnimatePresence>
+          </div>
+
+          {/* Navigation Arrow Right */}
+          {videos.length > 1 && (
+            <button
+              onClick={handleNext}
+              className="absolute right-0 md:right-[calc(50%-220px)] lg:right-[calc(50%-280px)] top-1/2 -translate-y-1/2 w-12 h-12 bg-white/90 hover:bg-white rounded-full shadow-lg flex items-center justify-center transition-all hover:scale-110 z-10"
+            >
+              <ChevronRight className="w-6 h-6 text-gray-900" />
+            </button>
           )}
         </div>
 
