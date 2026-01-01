@@ -107,22 +107,20 @@ export function CreateBusinessContent({
   const uploadToCloudinary = async (file: File): Promise<string> => {
     const formData = new FormData()
     formData.append('file', file)
-    formData.append('upload_preset', 'vidi_unsigned')
+    formData.append('folder', 'vidi-business-logos')
 
-    const response = await fetch(
-      `https://api.cloudinary.com/v1_1/${process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME}/image/upload`,
-      {
-        method: 'POST',
-        body: formData,
-      }
-    )
+    const response = await fetch('/api/upload', {
+      method: 'POST',
+      body: formData,
+    })
 
     if (!response.ok) {
-      throw new Error('Failed to upload image')
+      const error = await response.json()
+      throw new Error(error.error || 'Failed to upload image')
     }
 
     const data = await response.json()
-    return data.secure_url
+    return data.url
   }
 
   const generateSlug = (name: string): string => {
