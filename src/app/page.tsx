@@ -3,6 +3,7 @@ import {
   Navbar,
   HeroSection,
   FeaturesSlider,
+  VideoTestimonialSlider,
   HowItWorksSection,
   BlogPreviewSection,
   Footer,
@@ -25,6 +26,7 @@ export default async function HomePage() {
       <main>
         <HeroSection />
         <FeaturesSlider />
+        <VideoTestimonialSlider />
         <HowItWorksSection />
         <BlogPreviewSection posts={blogPosts || undefined} />
       </main>
