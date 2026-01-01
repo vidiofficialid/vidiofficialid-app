@@ -542,7 +542,7 @@ export function CreateCampaignContent({
         )}
       </motion.div>
 
-      {/* Existing Campaigns */}
+      {/* Existing Campaigns with Invitation Links */}
       {campaigns.length > 0 && (
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -550,19 +550,23 @@ export function CreateCampaignContent({
           transition={{ delay: 0.2 }}
           className="bg-white rounded-2xl shadow-lg p-6 mt-6"
         >
-          <h2 className="text-xl font-semibold mb-4">Campaign yang Sudah Dibuat</h2>
-          <div className="space-y-3">
+          <h2 className="text-xl font-semibold mb-4">Campaign & Link Undangan</h2>
+          <div className="space-y-4">
             {campaigns.map((campaign) => {
               const business = businesses.find(
                 (b) => b.id === campaign.business_id
               )
+              const inviteLink = `${typeof window !== 'undefined' ? window.location.origin : 'https://vidi.official.id'}/record/${campaign.id}`
+              
               return (
                 <motion.div
                   key={campaign.id}
-                  whileHover={{ scale: 1.01 }}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
                   className="border border-gray-200 rounded-xl p-4"
                 >
-                  <div className="flex items-start gap-3">
+                  {/* Campaign Info */}
+                  <div className="flex items-start gap-3 mb-4">
                     {campaign.product_image ? (
                       <Image
                         src={campaign.product_image}
@@ -572,11 +576,11 @@ export function CreateCampaignContent({
                         className="w-16 h-16 rounded-lg object-cover"
                       />
                     ) : (
-                      <div className="w-16 h-16 bg-blue-100 rounded-lg flex items-center justify-center">
+                      <div className="w-16 h-16 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
                         <Megaphone className="w-8 h-8 text-blue-600" />
                       </div>
                     )}
-                    <div className="flex-1">
+                    <div className="flex-1 min-w-0">
                       <h3 className="font-semibold">{campaign.title}</h3>
                       <p className="text-sm text-gray-600">{business?.name}</p>
                       <div className="flex items-center gap-2 mt-2 flex-wrap">
@@ -593,15 +597,74 @@ export function CreateCampaignContent({
                         >
                           {campaign.status}
                         </span>
-                        <span className="text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded">
-                          {campaign.invite_method === 'EMAIL'
-                            ? 'Email'
-                            : 'WhatsApp'}
-                        </span>
-                        <span className="text-xs text-gray-500">
-                          {campaign.customer_name}
-                        </span>
                       </div>
+                    </div>
+                  </div>
+
+                  {/* Invitee Info & Link */}
+                  <div className="bg-gray-50 rounded-lg p-3 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center">
+                          <span className="text-orange-600 font-medium text-sm">
+                            {campaign.customer_name?.[0]?.toUpperCase() || '?'}
+                          </span>
+                        </div>
+                        <div>
+                          <p className="font-medium text-sm">{campaign.customer_name}</p>
+                          <p className="text-xs text-gray-500">
+                            {campaign.invite_method === 'EMAIL' 
+                              ? campaign.customer_email 
+                              : campaign.customer_whatsapp}
+                          </p>
+                        </div>
+                      </div>
+                      <span className={`text-xs px-2 py-1 rounded ${
+                        campaign.invite_method === 'EMAIL'
+                          ? 'bg-blue-100 text-blue-700'
+                          : 'bg-green-100 text-green-700'
+                      }`}>
+                        {campaign.invite_method === 'EMAIL' ? 'Email' : 'WhatsApp'}
+                      </span>
+                    </div>
+
+                    {/* Invitation Link */}
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={inviteLink}
+                        readOnly
+                        className="flex-1 text-xs bg-white border border-gray-200 rounded-lg px-3 py-2 text-gray-600"
+                      />
+                      <motion.button
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => {
+                          navigator.clipboard.writeText(inviteLink)
+                          alert('Link berhasil disalin!')
+                        }}
+                        className="px-3 py-2 bg-orange-500 text-white text-xs rounded-lg hover:bg-orange-600 transition-colors"
+                      >
+                        Salin
+                      </motion.button>
+                      <motion.button
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => {
+                          if (campaign.invite_method === 'WHATSAPP' && campaign.customer_whatsapp) {
+                            const message = encodeURIComponent(
+                              `Halo ${campaign.customer_name},\n\nAnda diundang untuk memberikan video testimoni.\n\nSilakan klik link berikut:\n${inviteLink}\n\nTerima kasih!`
+                            )
+                            const waNumber = campaign.customer_whatsapp.replace(/\D/g, '')
+                            window.open(`https://wa.me/${waNumber}?text=${message}`, '_blank')
+                          } else {
+                            window.open(inviteLink, '_blank')
+                          }
+                        }}
+                        className="px-3 py-2 bg-green-500 text-white text-xs rounded-lg hover:bg-green-600 transition-colors"
+                      >
+                        Kirim
+                      </motion.button>
                     </div>
                   </div>
                 </motion.div>
