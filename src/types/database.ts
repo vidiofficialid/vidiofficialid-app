@@ -10,7 +10,7 @@ export type UserRole = 'user' | 'editor' | 'admin'
 export type AuthProvider = 'email' | 'google'
 export type CampaignStatus = 'DRAFT' | 'INVITED' | 'RECORDED' | 'COMPLETED'
 export type InviteMethod = 'EMAIL' | 'WHATSAPP' | 'BOTH'
-export type TestimonialStatus = 'PENDING' | 'APPROVED' | 'REJECTED'
+export type TestimonialStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'DELETED'
 export type ProductCategory = 'JASA' | 'PRODUK'
 
 export interface Database {
@@ -178,6 +178,10 @@ export interface Database {
           recorded_at: string
           device_info: string | null
           status: TestimonialStatus
+          approved_at: string | null
+          rejected_at: string | null
+          expires_at: string | null
+          deleted_at: string | null
           created_at: string
         }
         Insert: {
@@ -191,6 +195,10 @@ export interface Database {
           recorded_at?: string
           device_info?: string | null
           status?: TestimonialStatus
+          approved_at?: string | null
+          rejected_at?: string | null
+          expires_at?: string | null
+          deleted_at?: string | null
           created_at?: string
         }
         Update: {
@@ -204,6 +212,10 @@ export interface Database {
           recorded_at?: string
           device_info?: string | null
           status?: TestimonialStatus
+          approved_at?: string | null
+          rejected_at?: string | null
+          expires_at?: string | null
+          deleted_at?: string | null
           created_at?: string
         }
       }

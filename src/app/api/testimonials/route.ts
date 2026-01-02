@@ -5,6 +5,17 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 
+// Extract public_id from Cloudinary URL
+function extractCloudinaryId(url: string): string | null {
+  try {
+    // URL format: https://res.cloudinary.com/xxx/video/upload/v123/folder/filename.ext
+    const match = url.match(/\/upload\/(?:v\d+\/)?(.+)\.[^.]+$/)
+    return match ? match[1] : null
+  } catch {
+    return null
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
@@ -32,10 +43,15 @@ export async function POST(request: NextRequest) {
     
     const supabase = createClient(supabaseUrl, apiKey)
 
+    // Extract Cloudinary public ID for later deletion
+    const cloudinaryId = extractCloudinaryId(video_url)
+    console.log('Extracted Cloudinary ID:', cloudinaryId)
+
     // Prepare testimonial data
     const testimonialData = {
       campaign_id,
       video_url,
+      cloudinary_id: cloudinaryId,
       status: 'PENDING',
       recorded_at: new Date().toISOString(),
       duration: duration ? Math.round(duration) : null,
