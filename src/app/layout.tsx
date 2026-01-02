@@ -60,15 +60,7 @@ export const metadata: Metadata = {
     title: 'VidiOfficialID - Layanan Video Testimonial untuk UMKM Indonesia',
     description:
       'vidi.official.id solusi untuk usaha Anda mendapatkan video testimonial dari konsumen. Dengan teknologi aplikasi website terkini, pengguna tidak perlu download aplikasi cukup buka link di browser Chrome.',
-    images: [
-      {
-        url: '/og-image.png',
-        width: 1200,
-        height: 630,
-        alt: 'VidiOfficialID - Platform Video Testimonial UMKM',
-        type: 'image/png',
-      },
-    ],
+    // images di-generate otomatis dari opengraph-image.tsx
   },
   
   // Twitter Card
@@ -77,7 +69,7 @@ export const metadata: Metadata = {
     title: 'VidiOfficialID - Layanan Video Testimonial untuk UMKM Indonesia',
     description:
       'vidi.official.id solusi untuk usaha Anda mendapatkan video testimonial dari konsumen. Tanpa download aplikasi, cukup buka di browser.',
-    images: ['/og-image.png'],
+    // images di-generate otomatis dari twitter-image.tsx
     creator: '@vidiofficialid',
   },
   
@@ -94,8 +86,21 @@ export const metadata: Metadata = {
     address: true,
   },
   
-  // Icons - menggunakan dynamic generation dari icon.tsx dan apple-icon.tsx
-  // favicon.svg juga tersedia di /public/favicon.svg
+  // Icons - menggunakan favicon statis dari /public
+  icons: {
+    icon: [
+      { url: '/favicon.ico', sizes: 'any' },
+      { url: '/favicon-16x16.png', sizes: '16x16', type: 'image/png' },
+      { url: '/favicon-32x32.png', sizes: '32x32', type: 'image/png' },
+    ],
+    apple: [
+      { url: '/apple-touch-icon.png', sizes: '180x180', type: 'image/png' },
+    ],
+    other: [
+      { rel: 'icon', url: '/android-chrome-192x192.png', sizes: '192x192', type: 'image/png' },
+      { rel: 'icon', url: '/android-chrome-512x512.png', sizes: '512x512', type: 'image/png' },
+    ],
+  },
   
   // Manifest
   manifest: '/manifest.json',
@@ -110,13 +115,13 @@ export const metadata: Metadata = {
   
   // Other
   other: {
-    'msapplication-TileColor': '#15EBB9',
-    'theme-color': '#15EBB9',
+    'msapplication-TileColor': '#FDC435',
+    'theme-color': '#FDC435',
   },
 }
 
 export const viewport: Viewport = {
-  themeColor: '#15EBB9',
+  themeColor: '#FDC435',
   width: 'device-width',
   initialScale: 1,
   maximumScale: 5,
@@ -139,7 +144,7 @@ export default function RootLayout({
               '@type': 'Organization',
               name: 'VidiOfficialID',
               url: 'https://vidi.official.id',
-              logo: 'https://vidi.official.id/og-image.png',
+              logo: 'https://vidi.official.id/logo_vidiofficial.png',
               description:
                 'Platform video testimonial untuk UMKM Indonesia. Solusi digital marketing dengan social proof dari pelanggan nyata.',
               sameAs: [],
