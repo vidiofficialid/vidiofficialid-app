@@ -186,48 +186,45 @@ export function CreateCampaignContent({
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white border-b sticky top-0 z-10">
-        <div className="max-w-4xl mx-auto px-4 py-4 flex items-center gap-4">
-          <Link href="/dashboard">
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              className="p-2 hover:bg-gray-100 rounded-lg"
-            >
-              <ArrowLeft className="w-5 h-5" />
-            </motion.button>
-          </Link>
-          <h1 className="text-xl font-bold">Kelola Campaign</h1>
-        </div>
-      </header>
+    <div className="space-y-6">
+      {/* Page Title */}
+      <div className="flex items-center gap-4">
+        <Link href="/dashboard">
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            className="p-2 hover:bg-gray-100 rounded-lg bg-white shadow"
+          >
+            <ArrowLeft className="w-5 h-5" />
+          </motion.button>
+        </Link>
+        <h1 className="text-xl font-bold">Kelola Campaign</h1>
+      </div>
 
-      <main className="max-w-4xl mx-auto px-4 py-6">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-white rounded-2xl shadow-lg p-6"
-        >
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-              <Megaphone className="w-6 h-6 text-blue-600" />
-            </div>
-            <div>
-              <h2 className="text-xl font-bold">Buat Campaign Baru</h2>
-              <p className="text-gray-600 text-sm">
-                Buat campaign untuk mengumpulkan testimonial
-              </p>
-            </div>
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="bg-white rounded-2xl shadow-lg p-6"
+      >
+        <div className="flex items-center gap-3 mb-6">
+          <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+            <Megaphone className="w-6 h-6 text-blue-600" />
           </div>
+          <div>
+            <h2 className="text-xl font-bold">Buat Campaign Baru</h2>
+            <p className="text-gray-600 text-sm">
+              Buat campaign untuk mengumpulkan testimonial
+            </p>
+          </div>
+        </div>
 
-          {businesses.length === 0 ? (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="bg-yellow-50 border border-yellow-200 rounded-xl p-6 text-center"
-            >
-              <AlertCircle className="w-12 h-12 text-yellow-600 mx-auto mb-3" />
+        {businesses.length === 0 ? (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="bg-yellow-50 border border-yellow-200 rounded-xl p-6 text-center"
+          >
+            <AlertCircle className="w-12 h-12 text-yellow-600 mx-auto mb-3" />
               <p className="text-yellow-800 font-medium mb-4">
                 Anda belum memiliki bisnis. Buat bisnis terlebih dahulu.
               </p>
@@ -531,7 +528,6 @@ export function CreateCampaignContent({
             </div>
           </motion.div>
         )}
-      </main>
     </div>
   )
 }

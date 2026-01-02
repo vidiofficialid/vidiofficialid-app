@@ -57,47 +57,44 @@ export function TestimonialsContent({
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white border-b sticky top-0 z-10">
-        <div className="max-w-4xl mx-auto px-4 py-4 flex items-center gap-4">
-          <Link href="/dashboard">
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              className="p-2 hover:bg-gray-100 rounded-lg"
-            >
-              <ArrowLeft className="w-5 h-5" />
-            </motion.button>
-          </Link>
-          <h1 className="text-xl font-bold">Testimonial</h1>
-        </div>
-      </header>
+    <div className="space-y-6">
+      {/* Page Title */}
+      <div className="flex items-center gap-4">
+        <Link href="/dashboard">
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            className="p-2 hover:bg-gray-100 rounded-lg bg-white shadow"
+          >
+            <ArrowLeft className="w-5 h-5" />
+          </motion.button>
+        </Link>
+        <h1 className="text-xl font-bold">Testimonial</h1>
+      </div>
 
-      <main className="max-w-4xl mx-auto px-4 py-6">
-        {/* Stats */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="grid grid-cols-3 gap-3 mb-6"
-        >
-          <div className="bg-white rounded-xl shadow p-4 text-center">
-            <p className="text-2xl font-bold text-orange-600">{testimonials.length}</p>
-            <p className="text-xs text-gray-600">Total</p>
-          </div>
-          <div className="bg-white rounded-xl shadow p-4 text-center">
-            <p className="text-2xl font-bold text-green-600">
-              {testimonials.filter(t => t.status === 'APPROVED').length}
-            </p>
-            <p className="text-xs text-gray-600">Approved</p>
-          </div>
-          <div className="bg-white rounded-xl shadow p-4 text-center">
-            <p className="text-2xl font-bold text-yellow-600">
-              {testimonials.filter(t => t.status === 'PENDING').length}
-            </p>
-            <p className="text-xs text-gray-600">Pending</p>
-          </div>
-        </motion.div>
+      {/* Stats */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="grid grid-cols-3 gap-3"
+      >
+        <div className="bg-white rounded-xl shadow p-4 text-center">
+          <p className="text-2xl font-bold text-orange-600">{testimonials.length}</p>
+          <p className="text-xs text-gray-600">Total</p>
+        </div>
+        <div className="bg-white rounded-xl shadow p-4 text-center">
+          <p className="text-2xl font-bold text-green-600">
+            {testimonials.filter(t => t.status === 'APPROVED').length}
+          </p>
+          <p className="text-xs text-gray-600">Approved</p>
+        </div>
+        <div className="bg-white rounded-xl shadow p-4 text-center">
+          <p className="text-2xl font-bold text-yellow-600">
+            {testimonials.filter(t => t.status === 'PENDING').length}
+          </p>
+          <p className="text-xs text-gray-600">Pending</p>
+        </div>
+      </motion.div>
 
         {testimonials.length === 0 ? (
           <motion.div
@@ -205,7 +202,6 @@ export function TestimonialsContent({
             })}
           </motion.div>
         )}
-      </main>
 
       {/* Video Modal */}
       {selectedVideo && (

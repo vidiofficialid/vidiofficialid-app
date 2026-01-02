@@ -225,29 +225,26 @@ export function CreateBusinessContent({
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white border-b sticky top-0 z-10">
-        <div className="max-w-4xl mx-auto px-4 py-4 flex items-center gap-4">
-          <Link href="/dashboard">
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              className="p-2 hover:bg-gray-100 rounded-lg"
-            >
-              <ArrowLeft className="w-5 h-5" />
-            </motion.button>
-          </Link>
-          <h1 className="text-xl font-bold">Kelola Bisnis</h1>
-        </div>
-      </header>
+    <div className="space-y-6">
+      {/* Page Title */}
+      <div className="flex items-center gap-4">
+        <Link href="/dashboard">
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            className="p-2 hover:bg-gray-100 rounded-lg bg-white shadow"
+          >
+            <ArrowLeft className="w-5 h-5" />
+          </motion.button>
+        </Link>
+        <h1 className="text-xl font-bold">Kelola Bisnis</h1>
+      </div>
 
-      <main className="max-w-4xl mx-auto px-4 py-6">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-white rounded-2xl shadow-lg p-6"
-        >
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="bg-white rounded-2xl shadow-lg p-6"
+      >
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
@@ -488,7 +485,6 @@ export function CreateBusinessContent({
             </div>
           </motion.div>
         )}
-      </main>
     </div>
   )
 }

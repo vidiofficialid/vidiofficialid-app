@@ -4,7 +4,6 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { motion } from 'framer-motion'
 import { User, Mail, Building2, Megaphone, MessageSquare } from 'lucide-react'
-import { signOut } from '@/lib/actions/auth'
 import type { Profile } from '@/types/database'
 
 interface DashboardContentProps {
@@ -51,33 +50,17 @@ export function DashboardContent({
   ]
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white border-b sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
-          <h1 className="text-xl font-bold text-gray-800">VidiOfficialID</h1>
-          <div className="flex items-center gap-4">
-            <span className="text-sm text-gray-600 hidden sm:block">{profile?.name || profile?.email}</span>
-            <form action={signOut}>
-              <button className="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
-                Keluar
-              </button>
-            </form>
-          </div>
-        </div>
-      </header>
-
-      <main className="max-w-7xl mx-auto px-4 py-6 space-y-6">
-        {/* Welcome Section */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-          className="bg-gradient-to-br from-orange-500 via-orange-500 to-orange-600 rounded-2xl p-6 text-white shadow-xl relative overflow-hidden"
-        >
-          <div className="absolute top-0 right-0 w-40 h-40 bg-white/10 rounded-full -mr-20 -mt-20" />
-          <div className="absolute bottom-0 left-0 w-32 h-32 bg-white/10 rounded-full -ml-16 -mb-16" />
-          <div className="relative">
+    <div className="space-y-6">
+      {/* Welcome Section */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+        className="bg-gradient-to-br from-orange-500 via-orange-500 to-orange-600 rounded-2xl p-6 text-white shadow-xl relative overflow-hidden"
+      >
+        <div className="absolute top-0 right-0 w-40 h-40 bg-white/10 rounded-full -mr-20 -mt-20" />
+        <div className="absolute bottom-0 left-0 w-32 h-32 bg-white/10 rounded-full -ml-16 -mb-16" />
+        <div className="relative">
             <motion.h1
               initial={{ x: -20, opacity: 0 }}
               animate={{ x: 0, opacity: 1 }}
@@ -249,7 +232,6 @@ export function DashboardContent({
             </Link>
           </div>
         </motion.div>
-      </main>
     </div>
   )
 }
