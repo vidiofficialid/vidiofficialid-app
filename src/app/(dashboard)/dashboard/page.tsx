@@ -1,7 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { Button } from '@/components/ui/button'
-import { signOut } from '@/lib/actions/auth'
+import { DashboardContent } from './DashboardContent'
 import type { Profile } from '@/types/database'
 
 export default async function DashboardPage() {
@@ -12,49 +11,65 @@ export default async function DashboardPage() {
     redirect('/login')
   }
 
-  const { data: profile } = await supabase
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const sb = supabase as any
+
+  // Get profile
+  const { data: profile } = await sb
     .from('profiles')
     .select('*')
     .eq('id', user.id)
-    .single() as { data: Profile | null }
+    .single()
+
+  // Get business count
+  const { count: businessCount } = await sb
+    .from('businesses')
+    .select('*', { count: 'exact', head: true })
+    .eq('user_id', user.id)
+
+  // Get businesses for campaign count
+  const { data: businesses } = await sb
+    .from('businesses')
+    .select('id')
+    .eq('user_id', user.id)
+
+  const businessIds = (businesses as { id: string }[])?.map(b => b.id) || []
+
+  // Get campaign count
+  let campaignCount = 0
+  if (businessIds.length > 0) {
+    const { count } = await sb
+      .from('campaigns')
+      .select('*', { count: 'exact', head: true })
+      .in('business_id', businessIds)
+    campaignCount = count || 0
+  }
+
+  // Get campaigns for testimonial count
+  let testimonialCount = 0
+  if (businessIds.length > 0) {
+    const { data: campaigns } = await sb
+      .from('campaigns')
+      .select('id')
+      .in('business_id', businessIds)
+
+    const campaignIds = (campaigns as { id: string }[])?.map(c => c.id) || []
+    
+    if (campaignIds.length > 0) {
+      const { count } = await sb
+        .from('testimonials')
+        .select('*', { count: 'exact', head: true })
+        .in('campaign_id', campaignIds)
+      testimonialCount = count || 0
+    }
+  }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white border-b">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
-          <h1 className="text-2xl font-bold">VidiOfficialID</h1>
-          <div className="flex items-center gap-4">
-            <span className="text-gray-600">{profile?.name || user.email}</span>
-            <form action={signOut}>
-              <Button variant="outline" size="sm">Keluar</Button>
-            </form>
-          </div>
-        </div>
-      </header>
-
-      <main className="max-w-7xl mx-auto px-4 py-8">
-        <div className="bg-white rounded-2xl shadow-lg p-8">
-          <h2 className="text-2xl font-bold mb-4">Selamat Datang! 👋</h2>
-          <p className="text-gray-600 mb-6">
-            Kamu berhasil login sebagai <strong>{user.email}</strong>
-          </p>
-          
-          <div className="grid md:grid-cols-3 gap-4">
-            <div className="bg-gray-50 rounded-xl p-6">
-              <h3 className="text-lg font-semibold mb-2">Role</h3>
-              <p className="text-2xl font-bold capitalize">{profile?.role || 'user'}</p>
-            </div>
-            <div className="bg-gray-50 rounded-xl p-6">
-              <h3 className="text-lg font-semibold mb-2">Provider</h3>
-              <p className="text-2xl font-bold capitalize">{profile?.auth_provider || 'email'}</p>
-            </div>
-            <div className="bg-gray-50 rounded-xl p-6">
-              <h3 className="text-lg font-semibold mb-2">Email Verified</h3>
-              <p className="text-2xl font-bold">{profile?.email_verified ? '✅ Ya' : '❌ Belum'}</p>
-            </div>
-          </div>
-        </div>
-      </main>
-    </div>
+    <DashboardContent
+      profile={profile as Profile}
+      businessCount={businessCount || 0}
+      campaignCount={campaignCount}
+      testimonialCount={testimonialCount}
+    />
   )
 }
