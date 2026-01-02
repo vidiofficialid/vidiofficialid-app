@@ -88,8 +88,9 @@ export function RateSection({ campaign, business, recordedVideo }: RateSectionPr
 
       if (!testimonialResponse.ok) {
         const errorData = await testimonialResponse.json()
-        console.error('Testimonial API error:', errorData)
-        throw new Error(errorData.details || errorData.error || 'Failed to save testimonial')
+        console.error('Testimonial API error:', JSON.stringify(errorData, null, 2))
+        const errorMsg = errorData.hint || errorData.details || errorData.error || 'Failed to save testimonial'
+        throw new Error(errorMsg)
       }
 
       setUploadProgress(100)

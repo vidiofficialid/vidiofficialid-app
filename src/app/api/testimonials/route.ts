@@ -1,10 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createClient } from '@supabase/supabase-js'
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    console.log('Received testimonial data:', body)
+    console.log('Received testimonial data:', JSON.stringify(body, null, 2))
     
     const {
       campaign_id,
@@ -22,7 +26,11 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const supabase = await createClient()
+    // Use service role if available, otherwise use anon key
+    const apiKey = supabaseServiceKey || supabaseAnonKey
+    console.log('Using key type:', supabaseServiceKey ? 'service_role' : 'anon')
+    
+    const supabase = createClient(supabaseUrl, apiKey)
 
     // Prepare testimonial data
     const testimonialData = {
@@ -38,42 +46,42 @@ export async function POST(request: NextRequest) {
       }),
     }
 
-    console.log('Inserting testimonial:', testimonialData)
+    console.log('Inserting testimonial:', JSON.stringify(testimonialData, null, 2))
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data, error } = await (supabase as any)
+    const { data, error } = await supabase
       .from('testimonials')
       .insert(testimonialData)
       .select()
       .single()
 
     if (error) {
-      console.error('Database error details:', {
+      console.error('Database error details:', JSON.stringify({
         message: error.message,
         details: error.details,
         hint: error.hint,
         code: error.code,
-      })
+      }, null, 2))
       return NextResponse.json(
         { 
           error: 'Failed to save testimonial',
           details: error.message,
-          code: error.code 
+          code: error.code,
+          hint: error.hint
         },
         { status: 500 }
       )
     }
 
-    console.log('Testimonial saved successfully:', data)
+    console.log('Testimonial saved successfully:', data?.id)
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error: updateError } = await (supabase as any)
+    // Update campaign status to RECORDED
+    const { error: updateError } = await supabase
       .from('campaigns')
       .update({ status: 'RECORDED' })
       .eq('id', campaign_id)
 
     if (updateError) {
-      console.error('Campaign update error:', updateError)
+      console.error('Campaign update error:', updateError.message)
     }
 
     return NextResponse.json({
