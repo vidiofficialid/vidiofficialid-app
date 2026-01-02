@@ -1,9 +1,0 @@
-User-agent: *
-Disallow: /editor-blog
-Disallow: /editor-blog/*
-Disallow: /dashboard
-Disallow: /dashboard/*
-Disallow: /api/
-Allow: /
-
-Sitemap: https://vidi.official.id/sitemap.xml

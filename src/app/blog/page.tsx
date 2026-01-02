@@ -7,9 +7,14 @@ import { createClient } from '@/lib/supabase/server'
 import type { BlogPost } from '@/types/database'
 
 export const metadata: Metadata = {
-  title: 'Blog - VidiOfficial',
+  title: 'Blog - Tips Digital Marketing & Video Testimonial UMKM',
   description:
-    'Tips, insights, and strategies to help your business thrive with video testimonials.',
+    'Tips, panduan, dan strategi digital marketing untuk UMKM Indonesia. Pelajari cara memanfaatkan video testimonial dan social proof untuk meningkatkan penjualan bisnis Anda.',
+  keywords: ['blog UMKM', 'tips digital marketing', 'video testimonial tips', 'social proof strategi', 'marketing UMKM Indonesia'],
+  openGraph: {
+    title: 'Blog VidiOfficialID - Tips Digital Marketing UMKM',
+    description: 'Tips dan strategi untuk meningkatkan bisnis UMKM dengan video testimonial dan social proof.',
+  },
 }
 
 export default async function BlogPage() {

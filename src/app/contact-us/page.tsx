@@ -8,6 +8,8 @@ import { Label } from '@/components/ui/label'
 import { Mail, Phone, MapPin, Send, Loader2, CheckCircle, MessageSquare } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 
+// Note: Metadata for this page is handled in a separate layout.tsx or via head.tsx
+
 export default function ContactUsPage() {
   const [formData, setFormData] = useState({
     name: '',

@@ -4,9 +4,16 @@ import { Navbar, Footer } from '@/components/landing'
 import { Button } from '@/components/ui/button'
 import { Target, Eye, Heart, Users, Zap, Shield } from 'lucide-react'
 
-export const metadata = {
-  title: 'About Us | VidiOfficialID',
-  description: 'Learn about VidiOfficialID - the video testimonial platform designed to help Indonesian SMEs grow with authentic customer stories.',
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = {
+  title: 'Tentang Kami - VidiOfficialID Platform Video Testimonial UMKM',
+  description: 'VidiOfficialID adalah platform video testimonial untuk UMKM Indonesia. Pelajari visi, misi, dan mengapa ribuan pelaku usaha memilih kami untuk meningkatkan kepercayaan bisnis mereka.',
+  keywords: ['tentang VidiOfficialID', 'platform video testimonial', 'UMKM Indonesia', 'social proof bisnis'],
+  openGraph: {
+    title: 'Tentang VidiOfficialID - Platform Video Testimonial UMKM Indonesia',
+    description: 'Platform video testimonial yang dirancang khusus untuk membantu UMKM Indonesia mengumpulkan testimoni pelanggan dengan mudah dan profesional.',
+  },
 }
 
 export default function AboutPage() {
