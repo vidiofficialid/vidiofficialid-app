@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Circle, Square, Play, RotateCcw, Check, Camera, AlertCircle, Video } from 'lucide-react'
+import { Circle, Square, Play, RotateCcw, Check, Camera, AlertCircle } from 'lucide-react'
 
 interface RecordSectionProps {
   campaignData: {
@@ -13,7 +13,7 @@ interface RecordSectionProps {
   deviceInfo: { device: string; os: string } | null
 }
 
-type RecordingState = 'idle' | 'countdown' | 'recording' | 'confirm' | 'preview'
+type RecordingState = 'idle' | 'countdown' | 'recording' | 'preview'
 
 export function RecordSection({ campaignData, onRecordingComplete, deviceInfo }: RecordSectionProps) {
   const [recordingState, setRecordingState] = useState<RecordingState>('idle')
@@ -185,8 +185,8 @@ export function RecordSection({ campaignData, onRecordingComplete, deviceInfo }:
       clearInterval(recordingTimerRef.current)
     }
 
-    // Show confirmation modal
-    setRecordingState('confirm')
+    // Go directly to preview (no confirmation modal)
+    setRecordingState('preview')
   }, [])
 
   const handleRecordClick = () => {
@@ -195,38 +195,6 @@ export function RecordSection({ campaignData, onRecordingComplete, deviceInfo }:
     } else if (recordingState === 'recording') {
       stopRecording()
     }
-  }
-
-  const handleRecordAgain = () => {
-    // Clean up previous recording
-    if (recordedBlobUrl) {
-      URL.revokeObjectURL(recordedBlobUrl)
-      setRecordedBlobUrl(null)
-    }
-    setRecordedBlob(null)
-    chunksRef.current = []
-    setRecordingTime(0)
-    setIsPlaying(false)
-    
-    if (previewVideoRef.current) {
-      previewVideoRef.current.src = ''
-    }
-    
-    // Start new recording
-    setRecordingState('idle')
-    setTimeout(() => {
-      startCountdown()
-    }, 300)
-  }
-
-  const handleFinishFromModal = () => {
-    setRecordingState('preview')
-    // Set video source for preview
-    setTimeout(() => {
-      if (previewVideoRef.current && recordedBlobUrl) {
-        previewVideoRef.current.src = recordedBlobUrl
-      }
-    }, 100)
   }
 
   const handleFinalFinish = () => {
@@ -311,12 +279,12 @@ export function RecordSection({ campaignData, onRecordingComplete, deviceInfo }:
           )}
 
           {/* Recorded Video Preview */}
-          {(recordingState === 'confirm' || recordingState === 'preview') && (
+          {recordingState === 'preview' && (
             <video
               ref={previewVideoRef}
               playsInline
               className="w-full h-full object-cover"
-              onClick={recordingState === 'preview' ? togglePlayback : undefined}
+              onClick={togglePlayback}
             />
           )}
 
@@ -357,55 +325,6 @@ export function RecordSection({ campaignData, onRecordingComplete, deviceInfo }:
                   className="text-white text-9xl font-bold"
                 >
                   {countdown}
-                </motion.div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-
-          {/* Confirmation Modal Overlay */}
-          <AnimatePresence>
-            {recordingState === 'confirm' && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="absolute inset-0 bg-black/70 flex items-center justify-center p-6"
-              >
-                <motion.div
-                  initial={{ scale: 0.9, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  exit={{ scale: 0.9, opacity: 0 }}
-                  className="bg-white rounded-2xl p-6 w-full max-w-sm text-center"
-                >
-                  <div className="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <Video className="w-8 h-8 text-orange-600" />
-                  </div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                    Have you finished recording?
-                  </h3>
-                  <p className="text-gray-500 text-sm mb-6">
-                    Durasi: {formatTime(recordingTime)}
-                  </p>
-                  <div className="flex gap-3">
-                    <motion.button
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                      onClick={handleRecordAgain}
-                      className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 py-3 rounded-xl font-medium transition-colors flex items-center justify-center gap-2"
-                    >
-                      <RotateCcw className="w-5 h-5" />
-                      Record
-                    </motion.button>
-                    <motion.button
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                      onClick={handleFinishFromModal}
-                      className="flex-1 bg-orange-500 hover:bg-orange-600 text-white py-3 rounded-xl font-medium transition-colors flex items-center justify-center gap-2"
-                    >
-                      <Check className="w-5 h-5" />
-                      Finish
-                    </motion.button>
-                  </div>
                 </motion.div>
               </motion.div>
             )}

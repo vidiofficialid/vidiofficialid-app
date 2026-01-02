@@ -1,10 +1,9 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
-import { Star, Send, CheckCircle, Sparkles, ExternalLink, Loader2 } from 'lucide-react'
+import { Star, Send, CheckCircle, Sparkles, ExternalLink, Loader2, Lock } from 'lucide-react'
 import type { Campaign, Business } from '@/types/database'
 
 interface RateSectionProps {
@@ -14,24 +13,25 @@ interface RateSectionProps {
 }
 
 export function RateSection({ campaign, business, recordedVideo }: RateSectionProps) {
-  const router = useRouter()
   const [name, setName] = useState(campaign.customer_name || '')
   const [productRating, setProductRating] = useState(0)
   const [appRating, setAppRating] = useState(0)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isSubmitted, setIsSubmitted] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
+  const [errorMessage, setErrorMessage] = useState('')
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    setErrorMessage('')
 
     if (!name || productRating === 0 || appRating === 0) {
-      alert('Mohon lengkapi semua field')
+      setErrorMessage('Mohon lengkapi semua field')
       return
     }
 
     if (!recordedVideo) {
-      alert('Video tidak ditemukan')
+      setErrorMessage('Video tidak ditemukan. Silakan rekam ulang.')
       return
     }
 
@@ -44,19 +44,22 @@ export function RateSection({ campaign, business, recordedVideo }: RateSectionPr
       formData.append('file', recordedVideo, 'testimonial.webm')
       formData.append('folder', 'vidi-testimonials')
 
-      setUploadProgress(30)
+      setUploadProgress(20)
 
       const uploadResponse = await fetch('/api/upload', {
         method: 'POST',
         body: formData,
       })
 
+      setUploadProgress(60)
+
       if (!uploadResponse.ok) {
-        throw new Error('Failed to upload video')
+        const errorData = await uploadResponse.json()
+        throw new Error(errorData.error || 'Failed to upload video')
       }
 
       const uploadData = await uploadResponse.json()
-      setUploadProgress(70)
+      setUploadProgress(80)
 
       // 2. Save testimonial to database
       const testimonialResponse = await fetch('/api/testimonials', {
@@ -68,19 +71,20 @@ export function RateSection({ campaign, business, recordedVideo }: RateSectionPr
           customer_name: name,
           product_rating: productRating,
           app_rating: appRating,
-          duration: recordedVideo.size, // Will be calculated properly
+          duration: uploadData.duration || Math.round(recordedVideo.size / 50000),
         }),
       })
 
       if (!testimonialResponse.ok) {
-        throw new Error('Failed to save testimonial')
+        const errorData = await testimonialResponse.json()
+        throw new Error(errorData.error || 'Failed to save testimonial')
       }
 
       setUploadProgress(100)
       setIsSubmitted(true)
     } catch (error) {
       console.error('Error submitting testimonial:', error)
-      alert('Gagal mengirim testimonial. Silakan coba lagi.')
+      setErrorMessage(error instanceof Error ? error.message : 'Gagal mengirim testimonial. Silakan coba lagi.')
     } finally {
       setIsSubmitting(false)
     }
@@ -95,17 +99,17 @@ export function RateSection({ campaign, business, recordedVideo }: RateSectionPr
     onChange: (rating: number) => void
     label: string
   }) => (
-    <div className="space-y-2">
-      <label className="text-gray-700 text-sm font-medium">{label}</label>
-      <div className="flex gap-2">
+    <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl p-4">
+      <label className="text-gray-800 text-sm font-medium block mb-3">{label}</label>
+      <div className="flex gap-1 justify-center">
         {[1, 2, 3, 4, 5].map((star) => (
           <motion.button
             key={star}
             type="button"
             onClick={() => onChange(star)}
-            whileHover={{ scale: 1.2 }}
+            whileHover={{ scale: 1.15 }}
             whileTap={{ scale: 0.9 }}
-            className="focus:outline-none"
+            className="focus:outline-none p-1"
           >
             <Star
               className={`w-10 h-10 ${
@@ -120,9 +124,9 @@ export function RateSection({ campaign, business, recordedVideo }: RateSectionPr
 
   if (isSubmitted) {
     return (
-      <div className="max-w-2xl mx-auto px-4 py-12">
+      <div className="max-w-md mx-auto px-4 py-8 pb-24">
         <motion.div
-          initial={{ opacity: 0, scale: 0.8 }}
+          initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
           className="bg-white rounded-3xl shadow-xl p-8 text-center"
         >
@@ -131,7 +135,7 @@ export function RateSection({ campaign, business, recordedVideo }: RateSectionPr
             animate={{ scale: 1 }}
             transition={{ delay: 0.2, type: 'spring', stiffness: 200 }}
           >
-            <CheckCircle className="w-24 h-24 text-green-500 mx-auto mb-6" />
+            <CheckCircle className="w-20 h-20 text-green-500 mx-auto mb-6" />
           </motion.div>
 
           <motion.div
@@ -148,7 +152,7 @@ export function RateSection({ campaign, business, recordedVideo }: RateSectionPr
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.6 }}
-            className="mt-8 flex items-center justify-center gap-2 text-orange-600"
+            className="mt-6 flex items-center justify-center gap-2 text-blue-600"
           >
             <Sparkles className="w-5 h-5" />
             <span className="text-sm">Video sedang diproses...</span>
@@ -159,19 +163,25 @@ export function RateSection({ campaign, business, recordedVideo }: RateSectionPr
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.8 }}
-            className="mt-8 p-6 bg-gradient-to-br from-orange-50 to-orange-100 rounded-2xl"
+            className="mt-8 p-5 bg-gradient-to-br from-indigo-50 to-purple-50 rounded-2xl border border-indigo-100"
           >
-            <h4 className="font-medium text-gray-900 mb-2">Powered by Vidi.Official.id</h4>
-            <p className="text-sm text-gray-600 mb-4">
-              Platform video testimonial untuk UMKM Indonesia
+            <h4 className="font-semibold text-gray-900 mb-2">Powered by Vidi.Official.id</h4>
+            <p className="text-sm text-gray-600 mb-4 leading-relaxed">
+              Anda telah menggunakan layanan digital{' '}
+              <span className="font-semibold text-indigo-600">Vidi.Official.id</span> yang bertujuan 
+              memberikan kemudahan bagi usaha kecil di Indonesia untuk mendapatkan video testimonial 
+              dari konsumennya.
             </p>
             <Link
               href="/"
-              className="inline-flex items-center gap-2 bg-orange-600 text-white px-6 py-2 rounded-lg hover:bg-orange-700 transition-colors"
+              className="inline-flex items-center gap-2 bg-indigo-600 text-white px-6 py-3 rounded-xl hover:bg-indigo-700 transition-colors font-medium"
             >
-              Pelajari Lebih Lanjut
+              Daftar Menjadi Pengguna
               <ExternalLink className="w-4 h-4" />
             </Link>
+            <p className="text-xs text-gray-500 mt-3">
+              Dapatkan video testimonial dari pelanggan Anda dengan mudah
+            </p>
           </motion.div>
         </motion.div>
       </div>
@@ -179,9 +189,10 @@ export function RateSection({ campaign, business, recordedVideo }: RateSectionPr
   }
 
   return (
-    <div className="max-w-2xl mx-auto px-4 py-6">
+    <div className="max-w-md mx-auto px-4 py-6 pb-24">
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-        <div className="bg-white rounded-3xl shadow-xl p-6">
+        <div className="bg-white rounded-3xl shadow-lg p-6">
+          {/* Header */}
           <div className="mb-6">
             <h2 className="text-xl font-bold text-gray-900 mb-2">Satu Langkah Lagi!</h2>
             <p className="text-gray-600 text-sm">
@@ -189,10 +200,10 @@ export function RateSection({ campaign, business, recordedVideo }: RateSectionPr
             </p>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={handleSubmit} className="space-y-5">
             {/* Name Input */}
-            <div className="space-y-2">
-              <label htmlFor="name" className="text-gray-700 text-sm font-medium">
+            <div>
+              <label htmlFor="name" className="text-gray-700 text-sm font-medium block mb-2">
                 Nama Lengkap <span className="text-red-500">*</span>
               </label>
               <input
@@ -201,59 +212,48 @@ export function RateSection({ campaign, business, recordedVideo }: RateSectionPr
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Masukkan nama Anda"
-                className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-orange-500 focus:outline-none transition-colors"
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none transition-colors"
                 required
               />
             </div>
 
             {/* Product Rating */}
-            <div className="p-4 bg-gradient-to-br from-orange-50 to-orange-100 rounded-2xl">
-              <StarRating
-                value={productRating}
-                onChange={setProductRating}
-                label={`Rating Produk/Layanan ${business?.name}`}
-              />
-              {productRating > 0 && (
-                <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-sm text-gray-600 mt-2">
-                  {productRating === 5 && '🎉 Luar biasa! Terima kasih!'}
-                  {productRating === 4 && '👍 Bagus sekali!'}
-                  {productRating === 3 && '😊 Terima kasih atas masukannya'}
-                  {productRating === 2 && '🤔 Kami akan terus berkembang'}
-                  {productRating === 1 && '😔 Maaf atas ketidaknyamanannya'}
-                </motion.p>
-              )}
-            </div>
+            <StarRating
+              value={productRating}
+              onChange={setProductRating}
+              label={`Rating Produk/Layanan ${business?.name || ''}`}
+            />
 
             {/* App Rating */}
-            <div className="p-4 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl">
-              <StarRating
-                value={appRating}
-                onChange={setAppRating}
-                label="Rating Kemudahan Aplikasi Vidi.Official.id"
-              />
-              {appRating > 0 && (
-                <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-sm text-gray-600 mt-2">
-                  {appRating === 5 && '💯 Senang mendengarnya!'}
-                  {appRating === 4 && '✨ Kami senang bisa membantu!'}
-                  {appRating === 3 && '👌 Terima kasih atas feedback-nya'}
-                  {appRating === 2 && '🔧 Kami akan tingkatkan pengalaman Anda'}
-                  {appRating === 1 && '🙏 Terima kasih, kami akan perbaiki'}
-                </motion.p>
-              )}
-            </div>
+            <StarRating
+              value={appRating}
+              onChange={setAppRating}
+              label="Rating Kemudahan Aplikasi Vidi.Official.id"
+            />
+
+            {/* Error Message */}
+            {errorMessage && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm"
+              >
+                {errorMessage}
+              </motion.div>
+            )}
 
             {/* Upload Progress */}
             {isSubmitting && (
               <div className="space-y-2">
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-600">Mengunggah video...</span>
-                  <span className="text-orange-600 font-medium">{uploadProgress}%</span>
+                  <span className="text-blue-600 font-medium">{uploadProgress}%</span>
                 </div>
                 <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
                   <motion.div
                     initial={{ width: 0 }}
                     animate={{ width: `${uploadProgress}%` }}
-                    className="h-full bg-gradient-to-r from-orange-500 to-orange-600"
+                    className="h-full bg-gradient-to-r from-blue-500 to-indigo-600"
                   />
                 </div>
               </div>
@@ -267,8 +267,8 @@ export function RateSection({ campaign, business, recordedVideo }: RateSectionPr
               whileTap={{ scale: isSubmitting ? 1 : 0.98 }}
               className={`w-full py-4 rounded-xl flex items-center justify-center gap-2 transition-all font-medium ${
                 isSubmitting || !name || productRating === 0 || appRating === 0
-                  ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                  : 'bg-gradient-to-r from-orange-500 to-orange-600 text-white hover:from-orange-600 hover:to-orange-700 shadow-lg hover:shadow-xl'
+                  ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                  : 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white hover:from-blue-600 hover:to-indigo-700 shadow-lg hover:shadow-xl'
               }`}
             >
               {isSubmitting ? (
@@ -285,16 +285,45 @@ export function RateSection({ campaign, business, recordedVideo }: RateSectionPr
             </motion.button>
           </form>
 
-          {/* Info */}
+          {/* Security Info */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.3 }}
-            className="mt-6 p-4 bg-blue-50 rounded-xl"
+            className="mt-5 p-4 bg-blue-50 rounded-xl flex items-center gap-3"
           >
-            <p className="text-sm text-blue-800 text-center">
-              🔒 Video Anda akan diunggah ke sistem kami dengan aman
+            <Lock className="w-5 h-5 text-blue-600 flex-shrink-0" />
+            <p className="text-sm text-blue-800">
+              Video Anda akan dikompresi dan diunggah ke sistem kami dengan aman
             </p>
+          </motion.div>
+
+          {/* Vidi Info */}
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.5 }}
+            className="mt-5 p-5 bg-gradient-to-br from-indigo-50 to-purple-50 rounded-2xl border border-indigo-100"
+          >
+            <div className="text-center">
+              <h4 className="font-semibold text-gray-900 mb-2">Powered by Vidi.Official.id</h4>
+              <p className="text-sm text-gray-600 leading-relaxed mb-4">
+                Anda telah menggunakan layanan digital{' '}
+                <span className="font-semibold text-indigo-600">Vidi.Official.id</span> yang bertujuan 
+                memberikan kemudahan bagi usaha kecil di Indonesia untuk mendapatkan video testimonial 
+                dari konsumennya.
+              </p>
+              <Link
+                href="/"
+                className="inline-flex items-center gap-2 bg-indigo-600 text-white px-5 py-2.5 rounded-xl hover:bg-indigo-700 transition-colors text-sm font-medium"
+              >
+                Daftar Menjadi Pengguna
+                <ExternalLink className="w-4 h-4" />
+              </Link>
+              <p className="text-xs text-gray-500 mt-3">
+                Dapatkan video testimonial dari pelanggan Anda dengan mudah
+              </p>
+            </div>
           </motion.div>
         </div>
       </motion.div>

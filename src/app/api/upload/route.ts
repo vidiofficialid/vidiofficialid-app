@@ -21,26 +21,60 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Convert file to base64
+    // Check file size (max 100MB)
+    const maxSize = 100 * 1024 * 1024
+    if (file.size > maxSize) {
+      return NextResponse.json(
+        { error: 'File too large. Maximum size is 100MB' },
+        { status: 400 }
+      )
+    }
+
+    // Convert file to buffer
     const bytes = await file.arrayBuffer()
     const buffer = Buffer.from(bytes)
-    const base64 = `data:${file.type};base64,${buffer.toString('base64')}`
 
-    // Upload to Cloudinary
-    const result = await cloudinary.uploader.upload(base64, {
-      folder: folder,
-      resource_type: 'auto',
+    // Determine resource type
+    const isVideo = file.type.startsWith('video/')
+    const resourceType = isVideo ? 'video' : 'image'
+
+    // Upload to Cloudinary using upload_stream for large files
+    const result = await new Promise<{ secure_url: string; public_id: string; duration?: number }>((resolve, reject) => {
+      const uploadStream = cloudinary.uploader.upload_stream(
+        {
+          folder: folder,
+          resource_type: resourceType,
+          chunk_size: 6000000, // 6MB chunks for video
+        },
+        (error, result) => {
+          if (error) {
+            reject(error)
+          } else if (result) {
+            resolve({
+              secure_url: result.secure_url,
+              public_id: result.public_id,
+              duration: result.duration,
+            })
+          } else {
+            reject(new Error('No result from Cloudinary'))
+          }
+        }
+      )
+
+      // Write buffer to stream
+      uploadStream.end(buffer)
     })
 
     return NextResponse.json({
       success: true,
       url: result.secure_url,
       public_id: result.public_id,
+      duration: result.duration,
     })
   } catch (error) {
     console.error('Cloudinary upload error:', error)
     return NextResponse.json(
-      { error: 'Failed to upload file' },
+      { error: error instanceof Error ? error.message : 'Failed to upload file' },
       { status: 500 }
     )
   }
