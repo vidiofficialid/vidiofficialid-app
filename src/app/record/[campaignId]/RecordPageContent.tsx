@@ -56,7 +56,6 @@ export function RecordPageContent({ campaign, business }: RecordPageContentProps
     { id: 'smartphone', label: 'Smartphone', icon: Smartphone },
   ]
 
-  // Bottom Navigation items
   const navItems = [
     { id: 'about', label: 'About', icon: Info },
     { id: 'record', label: 'Record', icon: Video },
@@ -69,7 +68,7 @@ export function RecordPageContent({ campaign, business }: RecordPageContentProps
       <header className="bg-white border-b border-gray-200 sticky top-0 z-50">
         <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-center">
           <Image
-            src="https://res.cloudinary.com/dsv8iy2la/image/upload/v1766922503/logo_k0q2cc.png"
+            src="https://res.cloudinary.com/dsv8iy2la/image/upload/v1735742800/vidi-logo_xwbjle.png"
             alt="VidiOfficialID"
             width={48}
             height={48}
@@ -95,7 +94,6 @@ export function RecordPageContent({ campaign, business }: RecordPageContentProps
               className="bg-white rounded-2xl shadow-lg overflow-hidden"
             >
               <div className="p-5">
-                {/* Business & Campaign Header */}
                 <div className="flex items-center gap-3 mb-4">
                   {business?.logo ? (
                     <Image
@@ -116,7 +114,6 @@ export function RecordPageContent({ campaign, business }: RecordPageContentProps
                   </div>
                 </div>
 
-                {/* Campaign Image */}
                 {campaign.product_image && (
                   <div className="relative w-full h-44 rounded-xl overflow-hidden mb-4">
                     <Image
@@ -128,7 +125,6 @@ export function RecordPageContent({ campaign, business }: RecordPageContentProps
                   </div>
                 )}
 
-                {/* Description */}
                 <p className="text-gray-700 text-sm leading-relaxed">
                   Kami sangat menghargai pendapat Anda! Bagikan pengalaman Anda menggunakan 
                   produk/layanan kami dalam bentuk video testimonial. Video Anda akan membantu 

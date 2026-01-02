@@ -22,8 +22,6 @@ export interface Database {
           email: string
           name: string | null
           avatar_url: string | null
-          whatsapp: string | null
-          address: string | null
           role: UserRole
           auth_provider: AuthProvider
           email_verified: boolean
@@ -35,8 +33,6 @@ export interface Database {
           email: string
           name?: string | null
           avatar_url?: string | null
-          whatsapp?: string | null
-          address?: string | null
           role?: UserRole
           auth_provider?: AuthProvider
           email_verified?: boolean
@@ -48,8 +44,6 @@ export interface Database {
           email?: string
           name?: string | null
           avatar_url?: string | null
-          whatsapp?: string | null
-          address?: string | null
           role?: UserRole
           auth_provider?: AuthProvider
           email_verified?: boolean
