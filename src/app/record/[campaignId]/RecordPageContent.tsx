@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Image from 'next/image'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Monitor, Laptop, Tablet, Smartphone, ChevronRight } from 'lucide-react'
+import { Monitor, Smartphone, Tablet, Info, Video, Star, ChevronRight } from 'lucide-react'
 import { RecordSection } from '@/components/record/RecordSection'
 import { RateSection } from '@/components/record/RateSection'
 import type { Campaign, Business } from '@/types/database'
@@ -42,7 +42,7 @@ export function RecordPageContent({ campaign, business }: RecordPageContentProps
   }
 
   const getOSOptions = () => {
-    if (selectedDevice === 'computer' || selectedDevice === 'laptop') {
+    if (selectedDevice === 'computer') {
       return ['Windows', 'macOS', 'Linux']
     } else if (selectedDevice === 'tablet' || selectedDevice === 'smartphone') {
       return ['iOS', 'Android']
@@ -51,31 +51,30 @@ export function RecordPageContent({ campaign, business }: RecordPageContentProps
   }
 
   const devices = [
-    { id: 'computer', label: 'Komputer', icon: Monitor },
-    { id: 'laptop', label: 'Laptop', icon: Laptop },
+    { id: 'computer', label: 'Komputer/Laptop', icon: Monitor },
     { id: 'tablet', label: 'Tablet', icon: Tablet },
     { id: 'smartphone', label: 'Smartphone', icon: Smartphone },
   ]
 
+  // Bottom Navigation items
+  const navItems = [
+    { id: 'about', label: 'About', icon: Info },
+    { id: 'record', label: 'Record', icon: Video },
+    { id: 'rate', label: 'Rate', icon: Star },
+  ]
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-orange-50">
+    <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-orange-50 pb-20">
       {/* Header */}
       <header className="bg-white border-b border-gray-200 sticky top-0 z-50">
-        <div className="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between">
+        <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-center">
           <Image
             src="https://res.cloudinary.com/dsv8iy2la/image/upload/v1766922503/logo_k0q2cc.png"
             alt="VidiOfficialID"
-            width={40}
-            height={40}
-            className="w-10 h-10"
+            width={48}
+            height={48}
+            className="w-12 h-12"
           />
-          <div className="flex items-center gap-2 text-sm text-gray-500">
-            <span className={currentStep === 'about' ? 'text-orange-600 font-medium' : ''}>Info</span>
-            <ChevronRight className="w-4 h-4" />
-            <span className={currentStep === 'record' ? 'text-orange-600 font-medium' : ''}>Rekam</span>
-            <ChevronRight className="w-4 h-4" />
-            <span className={currentStep === 'rate' ? 'text-orange-600 font-medium' : ''}>Selesai</span>
-          </div>
         </div>
       </header>
 
@@ -87,7 +86,7 @@ export function RecordPageContent({ campaign, business }: RecordPageContentProps
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: 20 }}
-            className="max-w-2xl mx-auto px-4 py-6"
+            className="max-w-md mx-auto px-4 py-6"
           >
             {/* Campaign Info Card */}
             <motion.div
@@ -95,29 +94,31 @@ export function RecordPageContent({ campaign, business }: RecordPageContentProps
               animate={{ opacity: 1, y: 0 }}
               className="bg-white rounded-2xl shadow-lg overflow-hidden"
             >
-              <div className="p-6">
-                <div className="flex items-center gap-4 mb-6">
+              <div className="p-5">
+                {/* Business & Campaign Header */}
+                <div className="flex items-center gap-3 mb-4">
                   {business?.logo ? (
                     <Image
                       src={business.logo}
-                      alt={business.name}
-                      width={64}
-                      height={64}
-                      className="w-16 h-16 rounded-full object-cover border-2 border-gray-200"
+                      alt={business?.name || 'Business'}
+                      width={56}
+                      height={56}
+                      className="w-14 h-14 rounded-lg object-cover border border-gray-200"
                     />
                   ) : (
-                    <div className="w-16 h-16 rounded-full bg-gradient-to-br from-orange-400 to-orange-500 flex items-center justify-center text-white text-xl font-bold">
-                      {business?.name?.[0] || 'B'}
+                    <div className="w-14 h-14 rounded-lg bg-gradient-to-br from-orange-400 to-orange-500 flex items-center justify-center text-white text-xl font-bold">
+                      {business?.name?.[0]?.toUpperCase() || 'B'}
                     </div>
                   )}
                   <div>
-                    <h2 className="font-semibold text-gray-900">{business?.name}</h2>
+                    <h2 className="font-semibold text-gray-900">{business?.name || 'Business'}</h2>
                     <p className="text-gray-600 text-sm">{campaign.title}</p>
                   </div>
                 </div>
 
+                {/* Campaign Image */}
                 {campaign.product_image && (
-                  <div className="relative w-full h-48 rounded-xl overflow-hidden mb-4">
+                  <div className="relative w-full h-44 rounded-xl overflow-hidden mb-4">
                     <Image
                       src={campaign.product_image}
                       alt={campaign.title}
@@ -127,30 +128,12 @@ export function RecordPageContent({ campaign, business }: RecordPageContentProps
                   </div>
                 )}
 
-                <div className="space-y-4">
-                  <div>
-                    <p className="text-sm text-gray-500 mb-1">Halo, {campaign.customer_name}!</p>
-                    <p className="text-gray-700 leading-relaxed">
-                      Kami sangat menghargai pendapat Anda! Mohon luangkan waktu beberapa menit
-                      untuk memberikan video testimonial tentang pengalaman Anda dengan{' '}
-                      <strong>{business?.name}</strong>.
-                    </p>
-                  </div>
-
-                  {campaign.testimonial_script && (
-                    <div className="bg-orange-50 rounded-xl p-4">
-                      <p className="text-sm font-medium text-orange-800 mb-2">Script yang diharapkan:</p>
-                      <p className="text-gray-700 text-sm whitespace-pre-line">{campaign.testimonial_script}</p>
-                    </div>
-                  )}
-
-                  {campaign.gesture_guide && (
-                    <div className="bg-blue-50 rounded-xl p-4">
-                      <p className="text-sm font-medium text-blue-800 mb-2">Petunjuk gesture:</p>
-                      <p className="text-gray-700 text-sm">{campaign.gesture_guide}</p>
-                    </div>
-                  )}
-                </div>
+                {/* Description */}
+                <p className="text-gray-700 text-sm leading-relaxed">
+                  Kami sangat menghargai pendapat Anda! Bagikan pengalaman Anda menggunakan 
+                  produk/layanan kami dalam bentuk video testimonial. Video Anda akan membantu 
+                  calon pelanggan lain membuat keputusan yang tepat.
+                </p>
               </div>
             </motion.div>
 
@@ -161,29 +144,35 @@ export function RecordPageContent({ campaign, business }: RecordPageContentProps
               transition={{ delay: 0.1 }}
               className="mt-6"
             >
-              <h3 className="text-gray-900 font-medium mb-4">Pilih perangkat yang Anda gunakan:</h3>
-              <div className="grid grid-cols-2 gap-3">
+              <h3 className="text-gray-900 font-semibold mb-4">Pilih Perangkat Anda</h3>
+              <div className="space-y-3">
                 {devices.map((device) => {
                   const Icon = device.icon
+                  const isSelected = selectedDevice === device.id
                   return (
                     <motion.button
                       key={device.id}
-                      whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
                       onClick={() => handleDeviceSelect(device.id)}
-                      className={`p-5 rounded-xl border-2 transition-all flex flex-col items-center gap-3 ${
-                        selectedDevice === device.id
+                      className={`w-full p-4 rounded-xl border-2 transition-all flex items-center justify-between ${
+                        isSelected
                           ? 'border-orange-500 bg-orange-50'
                           : 'border-gray-200 bg-white hover:border-orange-300'
                       }`}
                     >
-                      <Icon
-                        size={36}
-                        className={selectedDevice === device.id ? 'text-orange-600' : 'text-gray-600'}
+                      <div className="flex items-center gap-3">
+                        <Icon
+                          size={24}
+                          className={isSelected ? 'text-orange-600' : 'text-gray-500'}
+                        />
+                        <span className={isSelected ? 'text-orange-600 font-medium' : 'text-gray-700'}>
+                          {device.label}
+                        </span>
+                      </div>
+                      <ChevronRight 
+                        size={20} 
+                        className={isSelected ? 'text-orange-600' : 'text-gray-400'} 
                       />
-                      <span className={selectedDevice === device.id ? 'text-orange-600 font-medium' : 'text-gray-700'}>
-                        {device.label}
-                      </span>
                     </motion.button>
                   )
                 })}
@@ -199,15 +188,14 @@ export function RecordPageContent({ campaign, business }: RecordPageContentProps
                   exit={{ opacity: 0, height: 0 }}
                   className="mt-6"
                 >
-                  <h3 className="text-gray-900 font-medium mb-4">Pilih sistem operasi:</h3>
+                  <h3 className="text-gray-900 font-semibold mb-4">Pilih Sistem Operasi</h3>
                   <div className="grid grid-cols-3 gap-3">
                     {getOSOptions().map((os) => (
                       <motion.button
                         key={os}
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.98 }}
+                        whileTap={{ scale: 0.95 }}
                         onClick={() => handleOSSelect(os)}
-                        className={`p-4 rounded-xl border-2 transition-all ${
+                        className={`p-3 rounded-xl border-2 transition-all text-sm ${
                           selectedOS === os
                             ? 'border-orange-500 bg-orange-50 text-orange-600 font-medium'
                             : 'border-gray-200 bg-white hover:border-orange-300 text-gray-700'
@@ -227,7 +215,7 @@ export function RecordPageContent({ campaign, business }: RecordPageContentProps
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="mt-8 pb-8"
+                  className="mt-8"
                 >
                   <motion.button
                     whileHover={{ scale: 1.02 }}
@@ -254,6 +242,7 @@ export function RecordPageContent({ campaign, business }: RecordPageContentProps
             <RecordSection
               campaignData={{
                 transcript: campaign.testimonial_script || 'Ceritakan pengalaman Anda dengan produk/layanan kami...',
+                gestureGuide: campaign.gesture_guide || '',
               }}
               onRecordingComplete={handleRecordingComplete}
               deviceInfo={{ device: selectedDevice, os: selectedOS }}
@@ -277,6 +266,46 @@ export function RecordPageContent({ campaign, business }: RecordPageContentProps
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Bottom Navigation */}
+      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-50">
+        <div className="max-w-md mx-auto px-4">
+          <div className="flex items-center justify-around py-2">
+            {navItems.map((item) => {
+              const Icon = item.icon
+              const isActive = currentStep === item.id
+              const isAccessible = 
+                item.id === 'about' || 
+                (item.id === 'record' && selectedDevice && selectedOS) ||
+                (item.id === 'rate' && recordedVideo)
+
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => {
+                    if (isAccessible) {
+                      setCurrentStep(item.id as PageStep)
+                    }
+                  }}
+                  disabled={!isAccessible}
+                  className={`flex flex-col items-center py-2 px-6 rounded-lg transition-all ${
+                    isActive 
+                      ? 'text-orange-600' 
+                      : isAccessible 
+                        ? 'text-gray-500 hover:text-gray-700' 
+                        : 'text-gray-300 cursor-not-allowed'
+                  }`}
+                >
+                  <Icon size={24} className={isActive ? 'text-orange-600' : ''} />
+                  <span className={`text-xs mt-1 ${isActive ? 'font-medium' : ''}`}>
+                    {item.label}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      </nav>
     </div>
   )
 }
