@@ -21,6 +21,37 @@ export function RateSection({ campaign, business, recordedVideo }: RateSectionPr
   const [uploadProgress, setUploadProgress] = useState(0)
   const [errorMessage, setErrorMessage] = useState('')
 
+  // Direct upload to Cloudinary (unsigned)
+  const uploadToCloudinary = async (blob: Blob): Promise<{ url: string; duration?: number }> => {
+    const cloudName = 'dsv8iy2la'
+    const uploadPreset = 'vidi_unsigned' // Unsigned preset - perlu dibuat di Cloudinary Dashboard
+    
+    const formData = new FormData()
+    formData.append('file', blob, 'testimonial.webm')
+    formData.append('upload_preset', uploadPreset)
+    formData.append('folder', 'vidi-testimonials')
+    
+    const response = await fetch(
+      `https://api.cloudinary.com/v1_1/${cloudName}/video/upload`,
+      {
+        method: 'POST',
+        body: formData,
+      }
+    )
+    
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error('Cloudinary error:', errorText)
+      throw new Error('Gagal upload video ke server')
+    }
+    
+    const data = await response.json()
+    return {
+      url: data.secure_url,
+      duration: data.duration,
+    }
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setErrorMessage('')
@@ -35,31 +66,25 @@ export function RateSection({ campaign, business, recordedVideo }: RateSectionPr
       return
     }
 
+    // Check file size
+    const fileSizeMB = recordedVideo.size / (1024 * 1024)
+    console.log('Video size:', fileSizeMB.toFixed(2), 'MB')
+    
+    if (fileSizeMB > 50) {
+      setErrorMessage('Video terlalu besar. Maksimal 50MB. Silakan rekam ulang dengan durasi lebih pendek.')
+      return
+    }
+
     setIsSubmitting(true)
     setUploadProgress(10)
 
     try {
-      // 1. Upload video to Cloudinary via API route
-      const formData = new FormData()
-      formData.append('file', recordedVideo, 'testimonial.webm')
-      formData.append('folder', 'vidi-testimonials')
-
+      // 1. Upload video directly to Cloudinary
       setUploadProgress(20)
-
-      const uploadResponse = await fetch('/api/upload', {
-        method: 'POST',
-        body: formData,
-      })
-
-      setUploadProgress(60)
-
-      if (!uploadResponse.ok) {
-        const errorData = await uploadResponse.json()
-        throw new Error(errorData.error || 'Failed to upload video')
-      }
-
-      const uploadData = await uploadResponse.json()
-      setUploadProgress(80)
+      
+      const uploadResult = await uploadToCloudinary(recordedVideo)
+      
+      setUploadProgress(70)
 
       // 2. Save testimonial to database
       const testimonialResponse = await fetch('/api/testimonials', {
@@ -67,13 +92,15 @@ export function RateSection({ campaign, business, recordedVideo }: RateSectionPr
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           campaign_id: campaign.id,
-          video_url: uploadData.url,
+          video_url: uploadResult.url,
           customer_name: name,
           product_rating: productRating,
           app_rating: appRating,
-          duration: uploadData.duration || Math.round(recordedVideo.size / 50000),
+          duration: uploadResult.duration || Math.round(recordedVideo.size / 50000),
         }),
       })
+
+      setUploadProgress(90)
 
       if (!testimonialResponse.ok) {
         const errorData = await testimonialResponse.json()

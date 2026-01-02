@@ -22,8 +22,8 @@ export function RecordSection({ campaignData, onRecordingComplete, deviceInfo }:
   const [isPlaying, setIsPlaying] = useState(false)
   const [stream, setStream] = useState<MediaStream | null>(null)
   const [cameraError, setCameraError] = useState<string | null>(null)
-  const [recordedBlobUrl, setRecordedBlobUrl] = useState<string | null>(null)
   const [recordedBlob, setRecordedBlob] = useState<Blob | null>(null)
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
 
   const videoRef = useRef<HTMLVideoElement>(null)
   const previewVideoRef = useRef<HTMLVideoElement>(null)
@@ -35,9 +35,11 @@ export function RecordSection({ campaignData, onRecordingComplete, deviceInfo }:
 
   // Request camera access
   useEffect(() => {
+    let mounted = true
+    
     const getCameraAccess = async () => {
       try {
-        if (!window.MediaRecorder) {
+        if (typeof window === 'undefined' || !window.MediaRecorder) {
           setCameraError('Browser Anda tidak mendukung perekaman video. Gunakan Chrome, Firefox, atau Edge terbaru.')
           return
         }
@@ -52,14 +54,19 @@ export function RecordSection({ campaignData, onRecordingComplete, deviceInfo }:
         }
 
         const mediaStream = await navigator.mediaDevices.getUserMedia(constraints)
-        setStream(mediaStream)
         
-        if (videoRef.current) {
-          videoRef.current.srcObject = mediaStream
+        if (mounted) {
+          setStream(mediaStream)
+          if (videoRef.current) {
+            videoRef.current.srcObject = mediaStream
+          }
+        } else {
+          // Component unmounted, stop the stream
+          mediaStream.getTracks().forEach(track => track.stop())
         }
       } catch (err) {
         console.error('Error accessing camera:', err)
-        if (err instanceof Error) {
+        if (mounted && err instanceof Error) {
           if (err.name === 'NotAllowedError') {
             setCameraError('Izin kamera ditolak. Silakan izinkan akses kamera di pengaturan browser.')
           } else if (err.name === 'NotFoundError') {
@@ -74,9 +81,7 @@ export function RecordSection({ campaignData, onRecordingComplete, deviceInfo }:
     getCameraAccess()
 
     return () => {
-      if (stream) {
-        stream.getTracks().forEach((track) => track.stop())
-      }
+      mounted = false
       if (countdownIntervalRef.current) {
         clearInterval(countdownIntervalRef.current)
       }
@@ -86,11 +91,47 @@ export function RecordSection({ campaignData, onRecordingComplete, deviceInfo }:
     }
   }, [])
 
+  // Cleanup stream on unmount
   useEffect(() => {
-    if (videoRef.current && stream) {
-      videoRef.current.srcObject = stream
+    return () => {
+      if (stream) {
+        stream.getTracks().forEach((track) => track.stop())
+      }
     }
   }, [stream])
+
+  // Cleanup preview URL
+  useEffect(() => {
+    return () => {
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl)
+      }
+    }
+  }, [previewUrl])
+
+  useEffect(() => {
+    if (videoRef.current && stream && recordingState !== 'preview') {
+      videoRef.current.srcObject = stream
+    }
+  }, [stream, recordingState])
+
+  // Set preview video source when blob is ready
+  useEffect(() => {
+    if (recordingState === 'preview' && recordedBlob) {
+      // Cleanup old URL
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl)
+      }
+      
+      const url = URL.createObjectURL(recordedBlob)
+      setPreviewUrl(url)
+      
+      if (previewVideoRef.current) {
+        previewVideoRef.current.src = url
+        previewVideoRef.current.load()
+      }
+    }
+  }, [recordingState, recordedBlob])
 
   const startRecording = useCallback(() => {
     if (!stream) return
@@ -122,7 +163,7 @@ export function RecordSection({ campaignData, onRecordingComplete, deviceInfo }:
     try {
       const mediaRecorder = new MediaRecorder(stream, {
         mimeType: selectedMimeType,
-        videoBitsPerSecond: 2500000,
+        videoBitsPerSecond: 1000000, // 1 Mbps untuk file lebih kecil
       })
       mediaRecorderRef.current = mediaRecorder
 
@@ -134,9 +175,8 @@ export function RecordSection({ campaignData, onRecordingComplete, deviceInfo }:
 
       mediaRecorder.onstop = () => {
         const blob = new Blob(chunksRef.current, { type: mimeTypeRef.current })
-        const url = URL.createObjectURL(blob)
-        setRecordedBlobUrl(url)
         setRecordedBlob(blob)
+        console.log('Recording complete, blob size:', (blob.size / 1024 / 1024).toFixed(2), 'MB')
       }
 
       mediaRecorder.start(1000)
@@ -145,7 +185,7 @@ export function RecordSection({ campaignData, onRecordingComplete, deviceInfo }:
 
       recordingTimerRef.current = setInterval(() => {
         setRecordingTime((prev) => {
-          if (prev >= 180) {
+          if (prev >= 60) { // Max 1 menit untuk ukuran file lebih kecil
             stopRecording()
             return prev
           }
@@ -157,6 +197,18 @@ export function RecordSection({ campaignData, onRecordingComplete, deviceInfo }:
       setCameraError('Gagal memulai perekaman.')
     }
   }, [stream])
+
+  const stopRecording = useCallback(() => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      mediaRecorderRef.current.stop()
+    }
+
+    if (recordingTimerRef.current) {
+      clearInterval(recordingTimerRef.current)
+    }
+
+    setRecordingState('preview')
+  }, [])
 
   const startCountdown = useCallback(() => {
     setRecordingState('countdown')
@@ -176,19 +228,6 @@ export function RecordSection({ campaignData, onRecordingComplete, deviceInfo }:
     }, 1000)
   }, [startRecording])
 
-  const stopRecording = useCallback(() => {
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
-      mediaRecorderRef.current.stop()
-    }
-
-    if (recordingTimerRef.current) {
-      clearInterval(recordingTimerRef.current)
-    }
-
-    // Go directly to preview (no confirmation modal)
-    setRecordingState('preview')
-  }, [])
-
   const handleRecordClick = () => {
     if (recordingState === 'idle') {
       startCountdown()
@@ -204,28 +243,30 @@ export function RecordSection({ campaignData, onRecordingComplete, deviceInfo }:
   }
 
   const handleTakeAgainFromPreview = () => {
-    if (recordedBlobUrl) {
-      URL.revokeObjectURL(recordedBlobUrl)
-      setRecordedBlobUrl(null)
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl)
+      setPreviewUrl(null)
     }
     setRecordedBlob(null)
     chunksRef.current = []
     setRecordingState('idle')
     setRecordingTime(0)
     setIsPlaying(false)
-    if (previewVideoRef.current) {
-      previewVideoRef.current.src = ''
-    }
   }
 
-  const togglePlayback = () => {
-    if (previewVideoRef.current) {
+  const togglePlayback = async () => {
+    if (!previewVideoRef.current) return
+    
+    try {
       if (isPlaying) {
         previewVideoRef.current.pause()
+        setIsPlaying(false)
       } else {
-        previewVideoRef.current.play()
+        await previewVideoRef.current.play()
+        setIsPlaying(true)
       }
-      setIsPlaying(!isPlaying)
+    } catch (err) {
+      console.error('Playback error:', err)
     }
   }
 
@@ -235,12 +276,23 @@ export function RecordSection({ campaignData, onRecordingComplete, deviceInfo }:
     return `${mins}:${secs.toString().padStart(2, '0')}`
   }
 
+  // Handle video events
   useEffect(() => {
     const video = previewVideoRef.current
     if (video) {
       const handleEnded = () => setIsPlaying(false)
+      const handlePause = () => setIsPlaying(false)
+      const handlePlay = () => setIsPlaying(true)
+      
       video.addEventListener('ended', handleEnded)
-      return () => video.removeEventListener('ended', handleEnded)
+      video.addEventListener('pause', handlePause)
+      video.addEventListener('play', handlePlay)
+      
+      return () => {
+        video.removeEventListener('ended', handleEnded)
+        video.removeEventListener('pause', handlePause)
+        video.removeEventListener('play', handlePlay)
+      }
     }
   }, [recordingState])
 
@@ -284,7 +336,6 @@ export function RecordSection({ campaignData, onRecordingComplete, deviceInfo }:
               ref={previewVideoRef}
               playsInline
               className="w-full h-full object-cover"
-              onClick={togglePlayback}
             />
           )}
 
