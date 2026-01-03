@@ -1,7 +1,7 @@
 import { ImageResponse } from 'next/og'
 
 export const runtime = 'edge'
-export const alt = 'VidiOfficialID - Platform Video Testimonial UMKM Indonesia'
+export const alt = 'VidiOfficialID - Platform Video Testimonial Pelaku Usaha Indonesia'
 export const size = {
   width: 1200,
   height: 630,
@@ -146,7 +146,7 @@ export default async function Image() {
             letterSpacing: '-1px',
           }}
         >
-          VidiOfficialID
+          vidi.official.id
         </div>
 
         {/* Subtitle */}
@@ -159,7 +159,7 @@ export default async function Image() {
             marginBottom: '32px',
           }}
         >
-          Layanan Video Testimonial untuk UMKM Indonesia
+          Layanan Video Testimonial untuk Pelaku Usaha Indonesia
         </div>
 
         {/* Feature Tags */}
@@ -208,7 +208,7 @@ export default async function Image() {
               boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
             }}
           >
-            ✓ Social Proof Produk UMKM
+            ✓ Social Proof Produk / Jasa
           </div>
         </div>
 
