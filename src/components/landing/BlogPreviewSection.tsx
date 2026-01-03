@@ -106,18 +106,18 @@ export function BlogPreviewSection({ posts }: BlogPreviewSectionProps) {
   const blogPosts =
     posts && posts.length > 0
       ? posts.map((post) => ({
-          id: post.id,
-          title: post.title,
-          excerpt: post.excerpt || '',
-          image: post.image || defaultBlogPosts[0].image,
-          slug: post.slug,
-          category: 'Blog',
-          readTime: '5 min read',
-        }))
+        id: post.id,
+        title: post.title,
+        excerpt: post.excerpt || '',
+        image: post.image || defaultBlogPosts[0].image,
+        slug: post.slug,
+        category: 'Blog',
+        readTime: '5 min read',
+      }))
       : defaultBlogPosts
 
   return (
-    <section className="py-20 px-4 bg-gray-900 text-white">
+    <section id="blog" className="py-20 px-4 bg-gray-900 text-white scroll-mt-20">
       <div className="container mx-auto max-w-7xl">
         <div className="text-center mb-16">
           <h2 className="text-4xl lg:text-5xl font-bold mb-4">
@@ -204,9 +204,8 @@ export function BlogPreviewSection({ posts }: BlogPreviewSectionProps) {
             <button
               key={index}
               onClick={() => scrollTo(index)}
-              className={`w-3 h-3 rounded-full transition-colors ${
-                index === selectedIndex ? 'bg-amber-400' : 'bg-gray-600'
-              }`}
+              className={`w-3 h-3 rounded-full transition-colors ${index === selectedIndex ? 'bg-amber-400' : 'bg-gray-600'
+                }`}
               aria-label={`Go to slide ${index + 1}`}
             />
           ))}
