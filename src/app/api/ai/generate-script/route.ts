@@ -38,8 +38,10 @@ async function generateWithGemini(apiKey: string, modelName: string, prompt: str
         parts: [{ text: prompt }]
       }],
       generationConfig: {
-        temperature: 0.7,
-        maxOutputTokens: 500,
+        temperature: 0.8,
+        maxOutputTokens: 1024, // Increased for complete response
+        topP: 0.95,
+        topK: 40,
       }
     })
   })
@@ -82,62 +84,51 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    if (!body.duration || ![15, 20, 25].includes(body.duration)) {
-      return NextResponse.json(
-        { error: 'Durasi harus 15, 20, atau 25 detik' },
-        { status: 400 }
-      )
-    }
-
-    const wordCount = {
-      15: '30-40',
-      20: '40-55',
-      25: '55-70'
-    }[body.duration]
+    // Durasi sebagai referensi saja, bukan batasan ketat
+    const durationGuide = {
+      15: 'singkat (sekitar 3-5 kalimat)',
+      20: 'sedang (sekitar 5-7 kalimat)', 
+      25: 'lengkap (sekitar 7-10 kalimat)'
+    }[body.duration || 20]
 
     const styleGuide = {
-      formal: 'Gunakan bahasa Indonesia baku dan profesional. Hindari bahasa gaul.',
-      santai: 'Gunakan bahasa Indonesia sehari-hari yang ramah dan casual. Boleh sedikit informal.',
-      emosional: 'Gunakan bahasa yang menyentuh emosi, bercerita dengan perasaan. Gunakan kata-kata yang membangkitkan empati.'
+      formal: 'Gunakan bahasa Indonesia baku dan profesional.',
+      santai: 'Gunakan bahasa Indonesia sehari-hari yang ramah, casual, dan natural seperti ngobrol dengan teman.',
+      emosional: 'Gunakan bahasa yang menyentuh emosi, bercerita dengan perasaan yang dalam dan autentik.'
     }[body.stylePreference || 'santai']
 
-    const prompt = `Kamu adalah copywriter profesional Indonesia yang ahli membuat script video testimonial yang autentik dan meyakinkan.
+    const prompt = `Kamu adalah copywriter profesional Indonesia yang ahli membuat script video testimonial.
 
-KONTEKS PRODUK/JASA: ${body.brandName || 'Produk/Jasa'}
+TUGAS: Buat script video testimonial yang LENGKAP dan NATURAL untuk produk/jasa berikut.
 
-INFORMASI DARI PEMILIK BISNIS:
-1. Masalah/kebutuhan yang diselesaikan: "${body.problemToSolve}"
-2. Alasan konsumen memilih produk ini: "${body.differentiation}"
-3. Pengalaman yang diharapkan saat menggunakan: "${body.expectedExperience}"
-4. Manfaat/dampak yang diharapkan: "${body.expectedBenefit}"
-5. Target rekomendasi: "${body.targetRecommendation}"
+PRODUK/JASA: ${body.brandName || 'Produk/Jasa ini'}
 
-REQUIREMENT SCRIPT:
-- Durasi: ${body.duration} detik (sekitar ${wordCount} kata)
-- Gaya: ${styleGuide}
-- Format: Script untuk video testimonial yang akan diucapkan oleh konsumen
-- Script harus terdengar natural dan autentik, BUKAN seperti iklan
-- Gunakan perspektif orang pertama ("Saya", "Aku")
-- Mulai dengan hook yang menarik (masalah awal atau keraguan)
-- Tengah: ceritakan pengalaman dan perubahan yang dirasakan
-- Akhir: rekomendasi natural untuk target audience
+INFORMASI KUNCI:
+1. Masalah yang diselesaikan: ${body.problemToSolve}
+2. Keunggulan produk: ${body.differentiation}
+3. Pengalaman pengguna: ${body.expectedExperience}
+4. Manfaat yang didapat: ${body.expectedBenefit}
+5. Target rekomendasi: ${body.targetRecommendation}
 
-STRUKTUR SCRIPT (${body.duration} detik):
-${body.duration === 15 ? `
-- Hook (3-4 detik): Masalah singkat
-- Experience (6-7 detik): Pengalaman & manfaat
-- CTA (4-5 detik): Rekomendasi
-` : body.duration === 20 ? `
-- Hook (4-5 detik): Masalah/keraguan awal
-- Experience (8-10 detik): Pengalaman detail & manfaat
-- CTA (5-6 detik): Rekomendasi dengan alasan
-` : `
-- Hook (5-6 detik): Masalah/keraguan awal dengan konteks
-- Experience (12-14 detik): Cerita pengalaman lengkap & manfaat konkret
-- CTA (6-8 detik): Rekomendasi kuat dengan target spesifik
-`}
+PANDUAN GAYA:
+- Panjang: ${durationGuide}
+- Gaya bahasa: ${styleGuide}
 
-Berikan HANYA script saja tanpa keterangan tambahan. Script harus siap dibaca langsung.`
+STRUKTUR SCRIPT:
+1. PEMBUKA (Hook): Mulai dengan masalah/keraguan awal yang relatable
+2. CERITA: Bagaimana menemukan dan mencoba produk/jasa ini
+3. PENGALAMAN: Ceritakan pengalaman nyata menggunakannya
+4. HASIL: Manfaat konkret yang dirasakan
+5. REKOMENDASI: Ajakan natural untuk target audience
+
+ATURAN PENTING:
+- Tulis dari sudut pandang orang pertama (Saya/Aku)
+- Harus terdengar NATURAL seperti orang sungguhan bercerita, BUKAN seperti iklan
+- Script harus LENGKAP dengan pembuka, isi, dan penutup
+- Jangan gunakan bullet point atau numbering
+- Langsung tulis script-nya saja tanpa keterangan apapun
+
+SCRIPT:`
 
     // Try each model until one works
     let generatedScript = ''
@@ -159,10 +150,9 @@ Berikan HANYA script saja tanpa keterangan tambahan. Script harus siap dibaca la
     }
 
     if (!generatedScript) {
-      // Return more helpful error with list of tried models
       return NextResponse.json(
         { 
-          error: `Semua model AI gagal. Error terakhir: ${lastError?.message || 'Unknown'}. Cek /api/ai/list-models untuk melihat model yang tersedia.`,
+          error: `Semua model AI gagal. Error terakhir: ${lastError?.message || 'Unknown'}`,
           triedModels: GEMINI_MODELS
         },
         { status: 500 }
@@ -173,6 +163,8 @@ Berikan HANYA script saja tanpa keterangan tambahan. Script harus siap dibaca la
     const cleanScript = generatedScript
       .replace(/^["']|["']$/g, '')
       .replace(/^\*\*.*\*\*\n?/gm, '')
+      .replace(/^Script:?\s*/i, '')
+      .replace(/^SCRIPT:?\s*/i, '')
       .trim()
 
     return NextResponse.json({
@@ -180,7 +172,6 @@ Berikan HANYA script saja tanpa keterangan tambahan. Script harus siap dibaca la
       script: cleanScript,
       metadata: {
         duration: body.duration,
-        estimatedWords: wordCount,
         style: body.stylePreference || 'santai',
         model: successModel
       }
