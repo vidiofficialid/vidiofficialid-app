@@ -39,7 +39,7 @@ async function generateWithGemini(apiKey: string, modelName: string, prompt: str
       }],
       generationConfig: {
         temperature: 0.8,
-        maxOutputTokens: 1024, // Increased for complete response
+        maxOutputTokens: 2048, // Increased to prevent script truncation
         topP: 0.95,
         topK: 40,
       }
