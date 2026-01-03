@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createAdminClient } from '@/lib/supabase/server'
+import { createSimpleAdminClient } from '@/lib/supabase/server'
 
 export async function GET(request: NextRequest) {
     try {
-        // Use admin client for data access (bypasses RLS)
-        const adminClient = await createAdminClient()
+        // Use simple admin client (bypasses RLS, no cookies needed)
+        const adminClient = createSimpleAdminClient()
 
         const searchParams = request.nextUrl.searchParams
         const page = parseInt(searchParams.get('page') || '1')
