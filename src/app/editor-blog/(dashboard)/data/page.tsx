@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { createBrowserClient } from '@supabase/ssr'
 import { Loader2, Database, ChevronLeft, ChevronRight, ArrowUpDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import type { Profile, Business, Campaign } from '@/types/database'
@@ -40,11 +39,6 @@ export default function DataManagementPage() {
 
     const ITEMS_PER_PAGE = 10
 
-    const supabase = createBrowserClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    )
-
     useEffect(() => {
         loadData()
     }, [activeTab, usersPage, usersSortAsc, businessesPage, businessesSortAsc, campaignsPage, campaignsSortAsc])
@@ -61,66 +55,67 @@ export default function DataManagementPage() {
             }
         } catch (error) {
             console.error('Error loading data:', error)
+            alert('Error loading data. Please try again.')
         } finally {
             setLoading(false)
         }
     }
 
     const loadUsers = async () => {
-        const start = (usersPage - 1) * ITEMS_PER_PAGE
-        const end = start + ITEMS_PER_PAGE - 1
+        try {
+            const response = await fetch(
+                `/api/admin/users?page=${usersPage}&sort=${usersSortAsc ? 'asc' : 'desc'}`
+            )
 
-        const { data, error, count } = await supabase
-            .from('profiles')
-            .select('*', { count: 'exact' })
-            .order('name', { ascending: usersSortAsc })
-            .range(start, end)
+            if (!response.ok) {
+                throw new Error('Failed to fetch users')
+            }
 
-        if (error) {
+            const { data, count } = await response.json()
+            setUsers(data || [])
+            setUsersTotal(count || 0)
+        } catch (error) {
             console.error('Error loading users:', error)
-            return
+            throw error
         }
-
-        setUsers(data || [])
-        setUsersTotal(count || 0)
     }
 
     const loadBusinesses = async () => {
-        const start = (businessesPage - 1) * ITEMS_PER_PAGE
-        const end = start + ITEMS_PER_PAGE - 1
+        try {
+            const response = await fetch(
+                `/api/admin/businesses?page=${businessesPage}&sort=${businessesSortAsc ? 'asc' : 'desc'}`
+            )
 
-        const { data, error, count } = await supabase
-            .from('businesses')
-            .select('*, profiles(name, email)', { count: 'exact' })
-            .order('name', { ascending: businessesSortAsc })
-            .range(start, end)
+            if (!response.ok) {
+                throw new Error('Failed to fetch businesses')
+            }
 
-        if (error) {
+            const { data, count } = await response.json()
+            setBusinesses(data || [])
+            setBusinessesTotal(count || 0)
+        } catch (error) {
             console.error('Error loading businesses:', error)
-            return
+            throw error
         }
-
-        setBusinesses(data as BusinessWithUser[] || [])
-        setBusinessesTotal(count || 0)
     }
 
     const loadCampaigns = async () => {
-        const start = (campaignsPage - 1) * ITEMS_PER_PAGE
-        const end = start + ITEMS_PER_PAGE - 1
+        try {
+            const response = await fetch(
+                `/api/admin/campaigns?page=${campaignsPage}&sort=${campaignsSortAsc ? 'asc' : 'desc'}`
+            )
 
-        const { data, error, count } = await supabase
-            .from('campaigns')
-            .select('*, businesses(name)', { count: 'exact' })
-            .order('title', { ascending: campaignsSortAsc })
-            .range(start, end)
+            if (!response.ok) {
+                throw new Error('Failed to fetch campaigns')
+            }
 
-        if (error) {
+            const { data, count } = await response.json()
+            setCampaigns(data || [])
+            setCampaignsTotal(count || 0)
+        } catch (error) {
             console.error('Error loading campaigns:', error)
-            return
+            throw error
         }
-
-        setCampaigns(data as CampaignWithBusiness[] || [])
-        setCampaignsTotal(count || 0)
     }
 
     const formatDate = (dateString: string) => {
@@ -195,8 +190,8 @@ export default function DataManagementPage() {
                     <button
                         onClick={() => setActiveTab('users')}
                         className={`flex-1 px-6 py-4 font-medium transition-colors ${activeTab === 'users'
-                                ? 'bg-amber-400 text-gray-900'
-                                : 'text-gray-600 hover:bg-gray-50'
+                            ? 'bg-amber-400 text-gray-900'
+                            : 'text-gray-600 hover:bg-gray-50'
                             }`}
                     >
                         Users ({usersTotal})
@@ -204,8 +199,8 @@ export default function DataManagementPage() {
                     <button
                         onClick={() => setActiveTab('businesses')}
                         className={`flex-1 px-6 py-4 font-medium transition-colors ${activeTab === 'businesses'
-                                ? 'bg-amber-400 text-gray-900'
-                                : 'text-gray-600 hover:bg-gray-50'
+                            ? 'bg-amber-400 text-gray-900'
+                            : 'text-gray-600 hover:bg-gray-50'
                             }`}
                     >
                         Businesses ({businessesTotal})
@@ -213,8 +208,8 @@ export default function DataManagementPage() {
                     <button
                         onClick={() => setActiveTab('campaigns')}
                         className={`flex-1 px-6 py-4 font-medium transition-colors ${activeTab === 'campaigns'
-                                ? 'bg-amber-400 text-gray-900'
-                                : 'text-gray-600 hover:bg-gray-50'
+                            ? 'bg-amber-400 text-gray-900'
+                            : 'text-gray-600 hover:bg-gray-50'
                             }`}
                     >
                         Campaigns ({campaignsTotal})
@@ -262,8 +257,8 @@ export default function DataManagementPage() {
                                                         <td className="px-4 py-3 text-sm">{user.email}</td>
                                                         <td className="px-4 py-3 text-sm">
                                                             <span className={`px-2 py-1 rounded-full text-xs font-medium ${user.role === 'admin' ? 'bg-purple-100 text-purple-700' :
-                                                                    user.role === 'editor' ? 'bg-blue-100 text-blue-700' :
-                                                                        'bg-gray-100 text-gray-700'
+                                                                user.role === 'editor' ? 'bg-blue-100 text-blue-700' :
+                                                                    'bg-gray-100 text-gray-700'
                                                                 }`}>
                                                                 {user.role}
                                                             </span>
@@ -325,8 +320,8 @@ export default function DataManagementPage() {
                                                         </td>
                                                         <td className="px-4 py-3 text-sm">
                                                             <span className={`px-2 py-1 rounded-full text-xs font-medium ${business.product_category === 'PRODUK'
-                                                                    ? 'bg-blue-100 text-blue-700'
-                                                                    : 'bg-green-100 text-green-700'
+                                                                ? 'bg-blue-100 text-blue-700'
+                                                                : 'bg-green-100 text-green-700'
                                                                 }`}>
                                                                 {business.product_category || '-'}
                                                             </span>
@@ -384,9 +379,9 @@ export default function DataManagementPage() {
                                                         <td className="px-4 py-3 text-sm">{campaign.customer_name}</td>
                                                         <td className="px-4 py-3 text-sm">
                                                             <span className={`px-2 py-1 rounded-full text-xs font-medium ${campaign.status === 'COMPLETED' ? 'bg-green-100 text-green-700' :
-                                                                    campaign.status === 'RECORDED' ? 'bg-blue-100 text-blue-700' :
-                                                                        campaign.status === 'INVITED' ? 'bg-yellow-100 text-yellow-700' :
-                                                                            'bg-gray-100 text-gray-700'
+                                                                campaign.status === 'RECORDED' ? 'bg-blue-100 text-blue-700' :
+                                                                    campaign.status === 'INVITED' ? 'bg-yellow-100 text-yellow-700' :
+                                                                        'bg-gray-100 text-gray-700'
                                                                 }`}>
                                                                 {campaign.status}
                                                             </span>
