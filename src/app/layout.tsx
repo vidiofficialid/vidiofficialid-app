@@ -20,7 +20,7 @@ export const metadata: Metadata = {
     'review video',
     'UMKM Indonesia',
     'marketing produk',
-    'marketing jasa'
+    'marketing jasa',
     'bukti sosial',
     'testimoni video',
     'platform testimonial',
