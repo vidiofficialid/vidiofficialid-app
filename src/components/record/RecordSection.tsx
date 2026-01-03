@@ -35,7 +35,7 @@ export function RecordSection({ campaignData, onRecordingComplete, deviceInfo }:
 
   useEffect(() => {
     let mounted = true
-    
+
     const getCameraAccess = async () => {
       try {
         if (typeof window === 'undefined' || !window.MediaRecorder) {
@@ -44,12 +44,17 @@ export function RecordSection({ campaignData, onRecordingComplete, deviceInfo }:
         }
 
         const constraints = {
-          video: { width: { ideal: 720 }, height: { ideal: 1280 }, facingMode: 'user' },
+          video: {
+            width: { ideal: 720 },
+            height: { ideal: 1280 },
+            facingMode: 'user',
+            aspectRatio: { ideal: 0.5625 } // Force 9:16 aspect ratio
+          },
           audio: true,
         }
 
         const mediaStream = await navigator.mediaDevices.getUserMedia(constraints)
-        
+
         if (mounted) {
           setStream(mediaStream)
           if (videoRef.current) {
@@ -60,8 +65,8 @@ export function RecordSection({ campaignData, onRecordingComplete, deviceInfo }:
         }
       } catch (err) {
         if (mounted && err instanceof Error) {
-          setCameraError(err.name === 'NotAllowedError' 
-            ? 'Izin kamera ditolak.' 
+          setCameraError(err.name === 'NotAllowedError'
+            ? 'Izin kamera ditolak.'
             : 'Tidak dapat mengakses kamera.')
         }
       }
@@ -207,21 +212,7 @@ export function RecordSection({ campaignData, onRecordingComplete, deviceInfo }:
     }
   }, [recordingState])
 
-  if (cameraError) {
-    return (
-      <div className="max-w-md mx-auto px-4 py-12">
-        <div className="bg-red-50 border border-red-200 rounded-2xl p-6 text-center">
-          <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-red-800 mb-2">Tidak Dapat Mengakses Kamera</h3>
-          <p className="text-red-600 text-sm">{cameraError}</p>
-          <button onClick={() => window.location.reload()} className="mt-4 px-6 py-2 bg-red-600 text-white rounded-lg">
-            Coba Lagi
-          </button>
-        </div>
-      </div>
-    )
-  }
-
+  // Update layout in return statement
   return (
     <div className="max-w-md mx-auto px-4 py-6">
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="relative">
@@ -234,22 +225,37 @@ export function RecordSection({ campaignData, onRecordingComplete, deviceInfo }:
             <video ref={previewVideoRef} playsInline className="w-full h-full object-cover" />
           )}
 
+          {/* Script Overlay - Moved to Top */}
+          {(recordingState === 'idle' || recordingState === 'countdown' || recordingState === 'recording') && (
+            <motion.div initial={{ y: -100 }} animate={{ y: 0 }}
+              className="absolute top-0 left-0 right-0 bg-black/30 backdrop-blur-sm p-5 z-20">
+              <div className="flex items-center gap-2 mb-2">
+                <Camera className="w-5 h-5 text-orange-400" />
+                <h4 className="text-white font-medium text-sm">Script:</h4>
+              </div>
+              <div className="overflow-y-auto max-h-32 text-shadow-sm scrollbar-thin scrollbar-thumb-white/20">
+                <p className="text-white/90 text-sm leading-relaxed whitespace-pre-line font-medium text-shadow">
+                  {campaignData.transcript}
+                </p>
+              </div>
+            </motion.div>
+          )}
+
           {recordingState === 'recording' && (
-            <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }}
-              className="absolute top-4 left-4 right-4 bg-black/60 backdrop-blur-md rounded-full px-4 py-2 flex items-center justify-between">
-              <div className="flex items-center gap-2">
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
+              className="absolute bottom-32 left-0 right-0 flex justify-center z-20">
+              <div className="bg-black/60 backdrop-blur-md rounded-full px-4 py-2 flex items-center gap-2">
                 <motion.div animate={{ scale: [1, 1.2, 1] }} transition={{ repeat: Infinity, duration: 1.5 }}
                   className="w-3 h-3 bg-red-500 rounded-full" />
-                <span className="text-white text-sm">REC</span>
+                <span className="text-white font-mono">{formatTime(recordingTime)}</span>
               </div>
-              <span className="text-white font-mono">{formatTime(recordingTime)}</span>
             </motion.div>
           )}
 
           <AnimatePresence>
             {recordingState === 'countdown' && countdown > 0 && (
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                className="absolute inset-0 flex items-center justify-center bg-black/50">
+                className="absolute inset-0 flex items-center justify-center bg-black/50 z-30">
                 <motion.div key={countdown} initial={{ scale: 0.5, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
                   exit={{ scale: 1.5, opacity: 0 }} className="text-white text-9xl font-bold">
                   {countdown}
@@ -260,7 +266,7 @@ export function RecordSection({ campaignData, onRecordingComplete, deviceInfo }:
 
           {recordingState === 'preview' && !isPlaying && (
             <motion.button initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }}
-              onClick={togglePlayback} className="absolute inset-0 flex items-center justify-center bg-black/30">
+              onClick={togglePlayback} className="absolute inset-0 flex items-center justify-center bg-black/30 z-20">
               <div className="w-20 h-20 bg-white/90 rounded-full flex items-center justify-center">
                 <Play className="w-10 h-10 text-gray-900 ml-1" />
               </div>
@@ -268,37 +274,24 @@ export function RecordSection({ campaignData, onRecordingComplete, deviceInfo }:
           )}
 
           {(recordingState === 'idle' || recordingState === 'recording') && (
-            <motion.button onClick={handleRecordClick} whileTap={{ scale: 0.9 }}
-              className="absolute bottom-32 left-1/2 -translate-x-1/2 z-20">
-              <div className="relative">
-                <div className={`w-20 h-20 rounded-full border-4 border-white flex items-center justify-center shadow-lg ${
-                  recordingState === 'recording' ? 'bg-red-600' : 'bg-red-500'}`}>
-                  {recordingState === 'recording' ? <Square className="w-8 h-8 text-white fill-white" /> 
-                    : <Circle className="w-14 h-14 text-white fill-red-500" />}
+            <motion.div className="absolute bottom-8 left-0 right-0 flex justify-center z-20">
+              <motion.button onClick={handleRecordClick} whileTap={{ scale: 0.9 }}>
+                <div className="relative">
+                  <div className={`w-20 h-20 rounded-full border-4 border-white flex items-center justify-center shadow-lg ${recordingState === 'recording' ? 'bg-red-600' : 'bg-red-500'}`}>
+                    {recordingState === 'recording' ? <Square className="w-8 h-8 text-white fill-white" />
+                      : <Circle className="w-14 h-14 text-white fill-red-500" />}
+                  </div>
+                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                    className="absolute -top-10 left-1/2 -translate-x-1/2 whitespace-nowrap">
+                    <span className={`text-white text-xs px-3 py-1.5 rounded-full shadow-md ${recordingState === 'recording' ? 'bg-red-600' : 'bg-black/70'}`}>
+                      {recordingState === 'recording' ? 'Tekan untuk Stop' : 'Tekan untuk Merekam'}
+                    </span>
+                  </motion.div>
                 </div>
-                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-                  className="absolute -bottom-10 left-1/2 -translate-x-1/2 whitespace-nowrap">
-                  <span className={`text-white text-xs px-3 py-1.5 rounded-full shadow-md ${
-                    recordingState === 'recording' ? 'bg-red-600' : 'bg-black/70'}`}>
-                    {recordingState === 'recording' ? 'Tekan untuk Stop' : 'Tekan untuk Merekam'}
-                  </span>
-                </motion.div>
-              </div>
-            </motion.button>
-          )}
-
-          {(recordingState === 'idle' || recordingState === 'countdown' || recordingState === 'recording') && (
-            <motion.div initial={{ y: 100 }} animate={{ y: 0 }}
-              className="absolute bottom-0 left-0 right-0 bg-white/90 backdrop-blur-md rounded-t-3xl p-5">
-              <div className="flex items-center gap-2 mb-2">
-                <Camera className="w-5 h-5 text-orange-600" />
-                <h4 className="text-gray-900 font-medium text-sm">Script:</h4>
-              </div>
-              <div className="overflow-y-auto max-h-20">
-                <p className="text-gray-700 text-sm leading-relaxed whitespace-pre-line">{campaignData.transcript}</p>
-              </div>
+              </motion.button>
             </motion.div>
           )}
+
 
           {recordingState === 'preview' && (
             <motion.div initial={{ y: 100 }} animate={{ y: 0 }}
