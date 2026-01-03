@@ -3,15 +3,17 @@ import './globals.css'
 
 const siteUrl = 'https://vidi.official.id'
 
-export const metadata: Metadata = {
-  // Basic Meta Tags
-  title: {
-    default: 'VidiOfficialID - Layanan Video Testimonial untuk Pelaku Usaha Indonesia',
-    template: '%s | VidiOfficialID',
-  },
-  description:
-    'vidi.official.id solusi untuk usaha Anda mendapatkan video testimonial dari konsumen. Dengan teknologi aplikasi website terkini, pengguna tidak perlu download aplikasi cukup buka link di browser Chrome atau Safari dari Smartphone anda.',
-  keywords: [
+import { createClient } from '@/lib/supabase/server'
+import { Database } from '@/types/database'
+
+export async function generateMetadata(): Promise<Metadata> {
+  // Default values
+  const defaultTitle = 'VidiOfficialID - Layanan Video Testimonial untuk Pelaku Usaha Indonesia'
+  const defaultDesc = 'vidi.official.id solusi untuk usaha Anda mendapatkan video testimonial dari konsumen. Dengan teknologi aplikasi website terkini, pengguna tidak perlu download aplikasi cukup buka link di browser Chrome atau Safari dari Smartphone anda.'
+
+  let title = defaultTitle
+  let description = defaultDesc
+  let keywords = [
     'layanan video testimonial',
     'video testimonial',
     'social proof produk / jasa',
@@ -26,100 +28,141 @@ export const metadata: Metadata = {
     'platform testimonial',
     'customer reviews Indonesia',
     'website yang membantu membuat video testimoni',
-  ],
-  authors: [{ name: 'VidiOfficial', url: siteUrl }],
-  creator: 'VidiOfficial',
-  publisher: 'VidiOfficial',
-  
-  // Robots & Indexing
-  robots: {
-    index: true,
-    follow: true,
-    googleBot: {
+  ]
+  let ogImages: { url: string }[] | undefined = undefined
+  let twitterImages: string[] | undefined = undefined
+
+  try {
+    const supabase = await createClient()
+    const { data } = await supabase
+      .from('seo_settings')
+      .select('*')
+      .eq('page_name', 'home')
+      .single()
+
+    const seo = data as any
+
+    if (seo) {
+      if (seo.title) title = seo.title
+      if (seo.description) description = seo.description
+      if (seo.keywords) {
+        keywords = seo.keywords.split(',').map((k: string) => k.trim())
+      }
+
+      if (seo.og_image_custom_mode && seo.og_image) {
+        ogImages = [{ url: seo.og_image }]
+      }
+
+      if (seo.twitter_image_custom_mode && seo.twitter_image) {
+        twitterImages = [seo.twitter_image]
+      }
+    }
+  } catch (e) {
+    console.error('Error loading SEO settings for layout:', e)
+  }
+
+  return {
+    // Basic Meta Tags
+    title: {
+      default: title,
+      template: '%s | VidiOfficialID',
+    },
+    description: description,
+    keywords: keywords,
+    authors: [{ name: 'VidiOfficial', url: siteUrl }],
+    creator: 'VidiOfficial',
+    publisher: 'VidiOfficial',
+
+    // Robots & Indexing
+    robots: {
       index: true,
       follow: true,
-      'max-video-preview': -1,
-      'max-image-preview': 'large',
-      'max-snippet': -1,
+      googleBot: {
+        index: true,
+        follow: true,
+        'max-video-preview': -1,
+        'max-image-preview': 'large',
+        'max-snippet': -1,
+      },
     },
-  },
-  
-  // Canonical & Alternates
-  metadataBase: new URL(siteUrl),
-  alternates: {
-    canonical: '/',
-    languages: {
-      'id-ID': '/',
+
+    // Canonical & Alternates
+    metadataBase: new URL(siteUrl),
+    alternates: {
+      canonical: '/',
+      languages: {
+        'id-ID': '/',
+      },
     },
-  },
-  
-  // Open Graph
-  openGraph: {
-    type: 'website',
-    locale: 'id_ID',
-    url: siteUrl,
-    siteName: 'VidiOfficialID',
-    title: 'VidiOfficialID - Layanan Video Testimonial untuk Pelaku Usaha Indonesia',
-    description:
-      'vidi.official.id solusi untuk usaha Anda mendapatkan video testimonial dari konsumen. Dengan teknologi aplikasi website terkini, pengguna tidak perlu download aplikasi cukup buka link di browser Chrome atau Safari.',
-    // images di-generate otomatis dari opengraph-image.tsx
-  },
-  
-  // Twitter Card
-  twitter: {
-    card: 'summary_large_image',
-    title: 'VidiofficialID - Layanan Video Testimonial untuk Pelaku Usaha Indonesia',
-    description:
-      'vidi.official.id solusi untuk usaha Anda mendapatkan video testimonial dari konsumen. Tanpa download aplikasi, cukup buka di browser.',
-    // images di-generate otomatis dari twitter-image.tsx
-    creator: '@vidiofficialid',
-  },
-  
-  // App & Icons
-  applicationName: 'VidiOfficialID',
-  appleWebApp: {
-    capable: true,
-    statusBarStyle: 'default',
-    title: 'VidiOfficialID',
-  },
-  formatDetection: {
-    telephone: true,
-    email: true,
-    address: true,
-  },
-  
-  // Icons - menggunakan favicon statis dari /public
-  icons: {
-    icon: [
-      { url: '/favicon.ico', sizes: 'any' },
-      { url: '/favicon-16x16.png', sizes: '16x16', type: 'image/png' },
-      { url: '/favicon-32x32.png', sizes: '32x32', type: 'image/png' },
-    ],
-    apple: [
-      { url: '/apple-touch-icon.png', sizes: '180x180', type: 'image/png' },
-    ],
-    other: [
-      { rel: 'icon', url: '/android-chrome-192x192.png', sizes: '192x192', type: 'image/png' },
-      { rel: 'icon', url: '/android-chrome-512x512.png', sizes: '512x512', type: 'image/png' },
-    ],
-  },
-  
-  // Manifest
-  manifest: '/manifest.json',
-  
-  // Verification
-  verification: {
-    google: 'googled0c1f92aa7c74e92', // Verified via HTML file
-  },
-  
-  // Category
-  category: 'technology',
-  
-  // Other
-  other: {
-    'msapplication-TileColor': '#FDC435',
-    'theme-color': '#FDC435',
-  },
+
+    // Open Graph
+    openGraph: {
+      type: 'website',
+      locale: 'id_ID',
+      url: siteUrl,
+      siteName: 'VidiOfficialID',
+      title: title,
+      description: description,
+      // If ogImages is defined (custom mode), it overrides default file-based generation.
+      // If undefined, Next.js generates it from opengraph-image.tsx
+      images: ogImages,
+    },
+
+    // Twitter Card
+    twitter: {
+      card: 'summary_large_image',
+      title: title,
+      description: description,
+      creator: '@vidiofficialid',
+      images: twitterImages,
+    },
+
+    // App & Icons
+    applicationName: 'VidiOfficialID',
+    appleWebApp: {
+      capable: true,
+      statusBarStyle: 'default',
+      title: 'VidiOfficialID',
+    },
+    formatDetection: {
+      telephone: true,
+      email: true,
+      address: true,
+    },
+
+    // Icons - menggunakan favicon statis dari /public
+    icons: {
+      icon: [
+        { url: '/favicon.ico', sizes: 'any' },
+        { url: '/favicon-16x16.png', sizes: '16x16', type: 'image/png' },
+        { url: '/favicon-32x32.png', sizes: '32x32', type: 'image/png' },
+      ],
+      apple: [
+        { url: '/apple-touch-icon.png', sizes: '180x180', type: 'image/png' },
+      ],
+      other: [
+        { rel: 'icon', url: '/android-chrome-192x192.png', sizes: '192x192', type: 'image/png' },
+        { rel: 'icon', url: '/android-chrome-512x512.png', sizes: '512x512', type: 'image/png' },
+      ],
+    },
+
+    // Manifest
+    manifest: '/manifest.json',
+
+    // Verification
+    verification: {
+      google: 'googled0c1f92aa7c74e92',
+    },
+
+    // Category
+    category: 'technology',
+
+    // Other
+    other: {
+      'msapplication-TileColor': '#FDC435',
+      'theme-color': '#FDC435',
+    },
+  }
 }
 
 export const viewport: Viewport = {

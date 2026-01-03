@@ -268,6 +268,9 @@ export interface Database {
           description: string | null
           keywords: string | null
           og_image: string | null
+          twitter_image: string | null
+          og_image_custom_mode: boolean
+          twitter_image_custom_mode: boolean
           updated_by: string | null
           updated_at: string
         }
@@ -278,6 +281,9 @@ export interface Database {
           description?: string | null
           keywords?: string | null
           og_image?: string | null
+          twitter_image?: string | null
+          og_image_custom_mode?: boolean
+          twitter_image_custom_mode?: boolean
           updated_by?: string | null
           updated_at?: string
         }
@@ -288,6 +294,9 @@ export interface Database {
           description?: string | null
           keywords?: string | null
           og_image?: string | null
+          twitter_image?: string | null
+          og_image_custom_mode?: boolean
+          twitter_image_custom_mode?: boolean
           updated_by?: string | null
           updated_at?: string
         }
