@@ -1,7 +1,7 @@
 import { ImageResponse } from 'next/og'
 
 export const runtime = 'edge'
-export const alt = 'VidiOfficialID - Platform Video Testimonial Pelaku Usaha Indonesia'
+export const alt = 'VidiofficialID - Platform Video Testimonial Pelaku Usaha Indonesia'
 export const size = {
   width: 1200,
   height: 630,

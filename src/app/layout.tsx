@@ -68,7 +68,7 @@ export const metadata: Metadata = {
   // Twitter Card
   twitter: {
     card: 'summary_large_image',
-    title: 'VidiOfficialID - Layanan Video Testimonial untuk Pelaku Usaha Indonesia',
+    title: 'VidiofficialID - Layanan Video Testimonial untuk Pelaku Usaha Indonesia',
     description:
       'vidi.official.id solusi untuk usaha Anda mendapatkan video testimonial dari konsumen. Tanpa download aplikasi, cukup buka di browser.',
     // images di-generate otomatis dari twitter-image.tsx
