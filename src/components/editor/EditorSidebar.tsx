@@ -10,6 +10,7 @@ import {
   Settings,
   LogOut,
   Home,
+  Database,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { editorSignOut } from '@/lib/actions/editor-auth'
@@ -34,6 +35,11 @@ const navItems = [
     label: 'SEO Settings',
     href: '/editor-blog/seo',
     icon: Settings,
+  },
+  {
+    label: 'Data Management',
+    href: '/editor-blog/data',
+    icon: Database,
   },
 ]
 
