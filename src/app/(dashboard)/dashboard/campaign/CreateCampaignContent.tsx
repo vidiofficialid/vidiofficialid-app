@@ -28,6 +28,8 @@ import {
   X,
   MessageSquare,
   HelpCircle,
+  Trash2,
+  Pencil,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import type { Business, Campaign, InviteMethod } from '@/types/database'
@@ -83,6 +85,12 @@ export function CreateCampaignContent({
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [previewImage, setPreviewImage] = useState('')
   const [thumbnailFile, setThumbnailFile] = useState<File | null>(null)
+
+  // Delete & Edit States
+  const [isDeleting, setIsDeleting] = useState<string | null>(null)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null)
+  const [editingCampaign, setEditingCampaign] = useState<Campaign | null>(null)
+  const [isSendingEmail, setIsSendingEmail] = useState<string | null>(null)
 
   // AI Script Generator States
   const [showAIGenerator, setShowAIGenerator] = useState(false)
@@ -197,6 +205,72 @@ export function CreateCampaignContent({
     alert('Link berhasil disalin!')
   }
 
+  // Delete Campaign Handler
+  const handleDeleteCampaign = async (campaignId: string) => {
+    setIsDeleting(campaignId)
+    try {
+      const response = await fetch('/api/campaigns', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ campaignId })
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        alert('Gagal menghapus campaign: ' + (data.error || 'Terjadi kesalahan'))
+        return
+      }
+
+      // Remove from local state
+      setCampaigns(campaigns.filter(c => c.id !== campaignId))
+      setShowDeleteConfirm(null)
+      alert('Campaign berhasil dihapus!')
+      router.refresh()
+    } catch (error) {
+      console.error('Error deleting campaign:', error)
+      alert('Gagal menghapus campaign')
+    } finally {
+      setIsDeleting(null)
+    }
+  }
+
+  // Send Email Invitation Handler  
+  const handleSendEmailInvitation = async (campaign: Campaign) => {
+    if (!campaign.customer_email) {
+      alert('Email customer tidak tersedia')
+      return
+    }
+
+    setIsSendingEmail(campaign.id)
+    try {
+      const recordUrl = `${window.location.origin}/record/${campaign.id}`
+      const response = await fetch('/api/campaigns/send-invitation', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: campaign.customer_email,
+          customerName: campaign.customer_name,
+          brandName: campaign.brand_name,
+          recordUrl: recordUrl
+        })
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        alert('Gagal mengirim email: ' + (data.error || 'Terjadi kesalahan'))
+        return
+      }
+
+      alert('Email undangan berhasil dikirim ke ' + campaign.customer_email)
+    } catch (error) {
+      console.error('Error sending invitation email:', error)
+      alert('Gagal mengirim email undangan')
+    } finally {
+      setIsSendingEmail(null)
+    }
+  }
   // AI Script Generator Functions
   const handleGenerateScript = async () => {
     // Validasi semua pertanyaan sudah dijawab
@@ -351,6 +425,176 @@ export function CreateCampaignContent({
 
   return (
     <div className="space-y-6">
+      {/* Edit Campaign Modal */}
+      <AnimatePresence>
+        {editingCampaign && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+            onClick={() => setEditingCampaign(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-white rounded-2xl p-6 max-w-lg w-full max-h-[90vh] overflow-y-auto"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-xl font-bold">Edit Campaign</h3>
+                <button onClick={() => setEditingCampaign(null)} className="p-2 hover:bg-gray-100 rounded-lg">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <form onSubmit={async (e) => {
+                e.preventDefault()
+                const form = e.currentTarget
+                const formData = new FormData(form)
+
+                try {
+                  const response = await fetch('/api/campaigns', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      campaignId: editingCampaign.id,
+                      title: formData.get('title'),
+                      brandName: formData.get('brandName'),
+                      customerName: formData.get('customerName'),
+                      customerEmail: formData.get('customerEmail'),
+                      customerWhatsapp: formData.get('customerWhatsapp'),
+                      inviteMethod: formData.get('inviteMethod'),
+                      testimonialScript: formData.get('testimonialScript'),
+                      gestureGuide: formData.get('gestureGuide'),
+                    })
+                  })
+
+                  const data = await response.json()
+
+                  if (!response.ok) {
+                    alert('Gagal mengupdate campaign: ' + (data.error || 'Terjadi kesalahan'))
+                    return
+                  }
+
+                  // Update local state
+                  setCampaigns(campaigns.map(c =>
+                    c.id === editingCampaign.id ? data.campaign : c
+                  ))
+                  setEditingCampaign(null)
+                  alert('Campaign berhasil diupdate!')
+                  router.refresh()
+                } catch (error) {
+                  console.error('Error updating campaign:', error)
+                  alert('Gagal mengupdate campaign')
+                }
+              }} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium mb-1">Nama Campaign</label>
+                  <input
+                    name="title"
+                    defaultValue={editingCampaign.title}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-1">Nama Brand</label>
+                  <input
+                    name="brandName"
+                    defaultValue={editingCampaign.brand_name || ''}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-1">Nama Customer</label>
+                  <input
+                    name="customerName"
+                    defaultValue={editingCampaign.customer_name || ''}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-1">Metode Undangan</label>
+                  <select
+                    name="inviteMethod"
+                    defaultValue={editingCampaign.invite_method || 'WHATSAPP'}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                  >
+                    <option value="WHATSAPP">WhatsApp</option>
+                    <option value="EMAIL">Email</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-1">Email Customer</label>
+                  <input
+                    name="customerEmail"
+                    type="email"
+                    defaultValue={editingCampaign.customer_email || ''}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-1">WhatsApp Customer</label>
+                  <input
+                    name="customerWhatsapp"
+                    defaultValue={editingCampaign.customer_whatsapp || ''}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-1">Script Testimoni</label>
+                  <textarea
+                    name="testimonialScript"
+                    defaultValue={editingCampaign.testimonial_script || ''}
+                    rows={3}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg resize-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-1">Petunjuk Gesture</label>
+                  <textarea
+                    name="gestureGuide"
+                    defaultValue={editingCampaign.gesture_guide || ''}
+                    rows={2}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg resize-none"
+                  />
+                </div>
+
+                <div className="flex gap-3 pt-4">
+                  <motion.button
+                    type="submit"
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    className="flex-1 bg-blue-600 text-white py-3 rounded-lg font-medium flex items-center justify-center gap-2"
+                  >
+                    <Save className="w-4 h-4" />
+                    Simpan Perubahan
+                  </motion.button>
+                  <motion.button
+                    type="button"
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => setEditingCampaign(null)}
+                    className="px-6 py-3 border border-gray-300 rounded-lg font-medium"
+                  >
+                    Batal
+                  </motion.button>
+                </div>
+              </form>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
       {/* Page Title */}
       <div className="flex items-center gap-4">
         <Link href="/dashboard">
@@ -518,10 +762,10 @@ export function CreateCampaignContent({
                           <div
                             key={index}
                             className={`h-1.5 flex-1 rounded-full transition-colors ${index < currentQuestionIndex
-                                ? 'bg-purple-600'
-                                : index === currentQuestionIndex
-                                  ? 'bg-purple-400'
-                                  : 'bg-gray-200'
+                              ? 'bg-purple-600'
+                              : index === currentQuestionIndex
+                                ? 'bg-purple-400'
+                                : 'bg-gray-200'
                               }`}
                           />
                         ))}
@@ -605,8 +849,8 @@ export function CreateCampaignContent({
                                 whileTap={{ scale: 0.95 }}
                                 onClick={() => setAiFormData({ ...aiFormData, duration: duration as DurationType })}
                                 className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${aiFormData.duration === duration
-                                    ? 'bg-purple-600 text-white'
-                                    : 'bg-white border border-gray-300 text-gray-700'
+                                  ? 'bg-purple-600 text-white'
+                                  : 'bg-white border border-gray-300 text-gray-700'
                                   }`}
                               >
                                 {duration}s
@@ -778,8 +1022,8 @@ export function CreateCampaignContent({
                   <motion.label
                     whileHover={{ scale: 1.02 }}
                     className={`flex items-center justify-center gap-2 p-3 border-2 rounded-lg cursor-pointer ${formData.invitationMethod === 'WHATSAPP'
-                        ? 'border-green-500 bg-green-50 text-green-700'
-                        : 'border-gray-300'
+                      ? 'border-green-500 bg-green-50 text-green-700'
+                      : 'border-gray-300'
                       }`}
                   >
                     <input
@@ -795,8 +1039,8 @@ export function CreateCampaignContent({
                   <motion.label
                     whileHover={{ scale: 1.02 }}
                     className={`flex items-center justify-center gap-2 p-3 border-2 rounded-lg cursor-pointer ${formData.invitationMethod === 'EMAIL'
-                        ? 'border-blue-500 bg-blue-50 text-blue-700'
-                        : 'border-gray-300'
+                      ? 'border-blue-500 bg-blue-50 text-blue-700'
+                      : 'border-gray-300'
                       }`}
                   >
                     <input
@@ -893,12 +1137,12 @@ export function CreateCampaignContent({
                       <div className="flex items-center gap-2 mt-2 flex-wrap">
                         <span
                           className={`text-xs px-2 py-1 rounded ${campaign.status === 'DRAFT'
-                              ? 'bg-gray-100 text-gray-700'
-                              : campaign.status === 'INVITED'
-                                ? 'bg-blue-100 text-blue-700'
-                                : campaign.status === 'RECORDED'
-                                  ? 'bg-green-100 text-green-700'
-                                  : 'bg-purple-100 text-purple-700'
+                            ? 'bg-gray-100 text-gray-700'
+                            : campaign.status === 'INVITED'
+                              ? 'bg-blue-100 text-blue-700'
+                              : campaign.status === 'RECORDED'
+                                ? 'bg-green-100 text-green-700'
+                                : 'bg-purple-100 text-purple-700'
                             }`}
                         >
                           {campaign.status}
@@ -907,7 +1151,7 @@ export function CreateCampaignContent({
                       </div>
 
                       {/* Action Buttons */}
-                      <div className="flex gap-2 mt-3">
+                      <div className="flex flex-wrap gap-2 mt-3">
                         <motion.button
                           whileHover={{ scale: 1.05 }}
                           whileTap={{ scale: 0.95 }}
@@ -917,22 +1161,93 @@ export function CreateCampaignContent({
                           <Copy className="w-3 h-3" />
                           Copy Link
                         </motion.button>
-                        {campaign.customer_whatsapp && (
+
+                        {/* Send Email Button - for EMAIL method */}
+                        {campaign.invite_method === 'EMAIL' && campaign.customer_email && (
+                          <motion.button
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                            onClick={() => handleSendEmailInvitation(campaign)}
+                            disabled={isSendingEmail === campaign.id}
+                            className="flex items-center gap-1 text-xs bg-blue-100 text-blue-700 px-3 py-1.5 rounded-lg disabled:opacity-50"
+                          >
+                            {isSendingEmail === campaign.id ? (
+                              <Loader2 className="w-3 h-3 animate-spin" />
+                            ) : (
+                              <Mail className="w-3 h-3" />
+                            )}
+                            Kirim Email
+                          </motion.button>
+                        )}
+
+                        {/* Send WhatsApp Button - for WHATSAPP method */}
+                        {campaign.invite_method === 'WHATSAPP' && campaign.customer_whatsapp && (
                           <motion.button
                             whileHover={{ scale: 1.05 }}
                             whileTap={{ scale: 0.95 }}
                             onClick={() => handleSendInvitation(campaign.id)}
                             className="flex items-center gap-1 text-xs bg-green-100 text-green-700 px-3 py-1.5 rounded-lg"
                           >
-                            <Send className="w-3 h-3" />
+                            <Phone className="w-3 h-3" />
                             Kirim WA
                           </motion.button>
                         )}
+
+                        {/* Edit Button */}
+                        <motion.button
+                          whileHover={{ scale: 1.05 }}
+                          whileTap={{ scale: 0.95 }}
+                          onClick={() => setEditingCampaign(campaign)}
+                          className="flex items-center gap-1 text-xs bg-yellow-100 text-yellow-700 px-3 py-1.5 rounded-lg"
+                        >
+                          <Pencil className="w-3 h-3" />
+                          Edit
+                        </motion.button>
+
+                        {/* Delete Button */}
+                        {showDeleteConfirm === campaign.id ? (
+                          <div className="flex items-center gap-1">
+                            <motion.button
+                              whileHover={{ scale: 1.05 }}
+                              whileTap={{ scale: 0.95 }}
+                              onClick={() => handleDeleteCampaign(campaign.id)}
+                              disabled={isDeleting === campaign.id}
+                              className="flex items-center gap-1 text-xs bg-red-600 text-white px-3 py-1.5 rounded-lg disabled:opacity-50"
+                            >
+                              {isDeleting === campaign.id ? (
+                                <Loader2 className="w-3 h-3 animate-spin" />
+                              ) : (
+                                <Check className="w-3 h-3" />
+                              )}
+                              Yakin?
+                            </motion.button>
+                            <motion.button
+                              whileHover={{ scale: 1.05 }}
+                              whileTap={{ scale: 0.95 }}
+                              onClick={() => setShowDeleteConfirm(null)}
+                              className="flex items-center gap-1 text-xs bg-gray-200 text-gray-700 px-3 py-1.5 rounded-lg"
+                            >
+                              <X className="w-3 h-3" />
+                            </motion.button>
+                          </div>
+                        ) : (
+                          <motion.button
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                            onClick={() => setShowDeleteConfirm(campaign.id)}
+                            className="flex items-center gap-1 text-xs bg-red-100 text-red-700 px-3 py-1.5 rounded-lg"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                            Hapus
+                          </motion.button>
+                        )}
+
+                        {/* Open Link Button */}
                         <Link href={`/record/${campaign.id}`} target="_blank">
                           <motion.button
                             whileHover={{ scale: 1.05 }}
                             whileTap={{ scale: 0.95 }}
-                            className="flex items-center gap-1 text-xs bg-blue-100 text-blue-700 px-3 py-1.5 rounded-lg"
+                            className="flex items-center gap-1 text-xs bg-purple-100 text-purple-700 px-3 py-1.5 rounded-lg"
                           >
                             <ExternalLink className="w-3 h-3" />
                             Buka
