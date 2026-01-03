@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { GoogleGenerativeAI } from '@google/generative-ai'
 
-// Initialize Gemini AI
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '')
+// Force Node.js runtime (not Edge) for compatibility with @google/generative-ai
+export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
 
 interface ScriptRequest {
   // 5 pertanyaan utama
@@ -20,6 +21,19 @@ interface ScriptRequest {
 
 export async function POST(request: NextRequest) {
   try {
+    // Check API Key first
+    const apiKey = process.env.GEMINI_API_KEY
+    if (!apiKey) {
+      console.error('GEMINI_API_KEY is not configured')
+      return NextResponse.json(
+        { error: 'AI belum dikonfigurasi. Tambahkan GEMINI_API_KEY di environment variables.' },
+        { status: 500 }
+      )
+    }
+
+    // Initialize Gemini AI inside the handler
+    const genAI = new GoogleGenerativeAI(apiKey)
+    
     const body: ScriptRequest = await request.json()
     
     // Validasi input
@@ -118,12 +132,34 @@ Berikan HANYA script saja tanpa keterangan tambahan. Script harus siap dibaca la
     
     // Check if it's a Gemini API error
     if (error instanceof Error) {
-      if (error.message.includes('API_KEY')) {
+      const errorMessage = error.message.toLowerCase()
+      
+      if (errorMessage.includes('api_key') || errorMessage.includes('api key')) {
         return NextResponse.json(
-          { error: 'Konfigurasi AI belum lengkap. Hubungi administrator.' },
+          { error: 'API Key tidak valid. Periksa konfigurasi GEMINI_API_KEY.' },
           { status: 500 }
         )
       }
+      
+      if (errorMessage.includes('quota') || errorMessage.includes('rate limit')) {
+        return NextResponse.json(
+          { error: 'Kuota API habis. Coba lagi nanti.' },
+          { status: 429 }
+        )
+      }
+      
+      if (errorMessage.includes('blocked') || errorMessage.includes('safety')) {
+        return NextResponse.json(
+          { error: 'Konten tidak dapat diproses. Coba ubah kata-kata Anda.' },
+          { status: 400 }
+        )
+      }
+
+      // Return actual error message for debugging
+      return NextResponse.json(
+        { error: `Gagal generate script: ${error.message}` },
+        { status: 500 }
+      )
     }
 
     return NextResponse.json(
