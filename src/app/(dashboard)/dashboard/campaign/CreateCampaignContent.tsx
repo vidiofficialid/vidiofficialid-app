@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import Link from 'next/link'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import {
   Megaphone,
   Upload,
@@ -19,6 +19,15 @@ import {
   ArrowLeft,
   Copy,
   ExternalLink,
+  Sparkles,
+  Wand2,
+  Clock,
+  ChevronRight,
+  RefreshCw,
+  Check,
+  X,
+  MessageSquare,
+  HelpCircle,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import type { Business, Campaign, InviteMethod } from '@/types/database'
@@ -28,6 +37,43 @@ interface CreateCampaignContentProps {
   existingCampaigns: Campaign[]
 }
 
+// AI Questions untuk generate script
+const AI_QUESTIONS = [
+  {
+    id: 'problemToSolve',
+    question: 'Masalah atau kebutuhan apa yang ingin diselesaikan dengan produk/jasa ini?',
+    placeholder: 'Contoh: Kesulitan mencari jasa fotografi profesional dengan harga terjangkau',
+    helpText: 'Ini akan membantu menciptakan konteks emosional yang relatable bagi calon konsumen'
+  },
+  {
+    id: 'differentiation',
+    question: 'Menurut Anda, apa yang membuat konsumen memilih produk/jasa ini dibandingkan pilihan lain?',
+    placeholder: 'Contoh: Kualitas hasil foto yang konsisten, respons cepat, dan harga transparan',
+    helpText: 'Untuk menemukan unique selling point (USP) secara alami'
+  },
+  {
+    id: 'expectedExperience',
+    question: 'Pengalaman apa yang diharapkan ketika konsumen menggunakan produk/jasa ini?',
+    placeholder: 'Contoh: Proses booking mudah, sesi foto yang menyenangkan, hasil edit cepat',
+    helpText: 'Menghasilkan narasi yang terasa jujur dan autentik'
+  },
+  {
+    id: 'expectedBenefit',
+    question: 'Manfaat atau dampak apa yang diharapkan setelah konsumen menggunakan produk/jasa ini?',
+    placeholder: 'Contoh: Punya foto profesional untuk profil bisnis, meningkatkan kepercayaan klien',
+    helpText: 'Menekankan benefit konkret seperti waktu, uang, kualitas, atau kepercayaan diri'
+  },
+  {
+    id: 'targetRecommendation',
+    question: 'Kepada siapa Anda ingin konsumen merekomendasikan produk/jasa Anda?',
+    placeholder: 'Contoh: Pemilik UMKM yang butuh foto produk, freelancer yang butuh foto profesional',
+    helpText: 'Menutup dengan call-to-action implisit yang kuat untuk pemasaran'
+  }
+]
+
+type DurationType = 15 | 20 | 25
+type StyleType = 'formal' | 'santai' | 'emosional'
+
 export function CreateCampaignContent({
   businesses,
   existingCampaigns,
@@ -35,9 +81,26 @@ export function CreateCampaignContent({
   const router = useRouter()
   const [campaigns, setCampaigns] = useState<Campaign[]>(existingCampaigns)
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [isSendingInvite, setIsSendingInvite] = useState(false)
   const [previewImage, setPreviewImage] = useState('')
   const [thumbnailFile, setThumbnailFile] = useState<File | null>(null)
+  
+  // AI Script Generator States
+  const [showAIGenerator, setShowAIGenerator] = useState(false)
+  const [isGeneratingScript, setIsGeneratingScript] = useState(false)
+  const [generatedScript, setGeneratedScript] = useState('')
+  const [aiError, setAiError] = useState('')
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0)
+  
+  // AI Form Data
+  const [aiFormData, setAiFormData] = useState({
+    problemToSolve: '',
+    differentiation: '',
+    expectedExperience: '',
+    expectedBenefit: '',
+    targetRecommendation: '',
+    duration: 20 as DurationType,
+    stylePreference: 'santai' as StyleType,
+  })
 
   const [formData, setFormData] = useState({
     businessId: '',
@@ -103,6 +166,69 @@ export function CreateCampaignContent({
     const url = `${window.location.origin}/record/${campaignId}`
     navigator.clipboard.writeText(url)
     alert('Link berhasil disalin!')
+  }
+
+  // AI Script Generator Functions
+  const handleGenerateScript = async () => {
+    // Validasi semua pertanyaan sudah dijawab
+    const requiredFields = ['problemToSolve', 'differentiation', 'expectedExperience', 'expectedBenefit', 'targetRecommendation']
+    const missingFields = requiredFields.filter(field => !aiFormData[field as keyof typeof aiFormData])
+    
+    if (missingFields.length > 0) {
+      setAiError('Mohon jawab semua pertanyaan terlebih dahulu')
+      return
+    }
+
+    setIsGeneratingScript(true)
+    setAiError('')
+    setGeneratedScript('')
+
+    try {
+      const response = await fetch('/api/ai/generate-script', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...aiFormData,
+          brandName: formData.brandName || formData.name || 'Produk/Jasa'
+        })
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Gagal generate script')
+      }
+
+      setGeneratedScript(data.script)
+    } catch (error) {
+      console.error('Generate script error:', error)
+      setAiError(error instanceof Error ? error.message : 'Terjadi kesalahan')
+    } finally {
+      setIsGeneratingScript(false)
+    }
+  }
+
+  const handleUseAIScript = () => {
+    setFormData({ ...formData, testimonialScript: generatedScript })
+    setShowAIGenerator(false)
+    setGeneratedScript('')
+    setCurrentQuestionIndex(0)
+  }
+
+  const handleNextQuestion = () => {
+    if (currentQuestionIndex < AI_QUESTIONS.length - 1) {
+      setCurrentQuestionIndex(currentQuestionIndex + 1)
+    }
+  }
+
+  const handlePrevQuestion = () => {
+    if (currentQuestionIndex > 0) {
+      setCurrentQuestionIndex(currentQuestionIndex - 1)
+    }
+  }
+
+  const isAllQuestionsAnswered = () => {
+    return AI_QUESTIONS.every(q => aiFormData[q.id as keyof typeof aiFormData])
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -177,6 +303,15 @@ export function CreateCampaignContent({
       })
       setPreviewImage('')
       setThumbnailFile(null)
+      setAiFormData({
+        problemToSolve: '',
+        differentiation: '',
+        expectedExperience: '',
+        expectedBenefit: '',
+        targetRecommendation: '',
+        duration: 20,
+        stylePreference: 'santai',
+      })
     } catch (error) {
       console.error('Error:', error)
       alert('Terjadi kesalahan saat membuat campaign')
@@ -310,18 +445,278 @@ export function CreateCampaignContent({
                 </div>
               </div>
 
-              {/* Script & Gesture */}
-              <div>
-                <label className="block text-sm font-medium mb-2">Script Testimoni</label>
+              {/* Script Testimoni dengan AI Generator */}
+              <div className="border border-gray-200 rounded-xl p-4 bg-gradient-to-br from-purple-50 to-blue-50">
+                <div className="flex items-center justify-between mb-3">
+                  <label className="block text-sm font-medium flex items-center gap-2">
+                    <MessageSquare className="w-4 h-4 text-purple-600" />
+                    Script Testimoni
+                  </label>
+                  <motion.button
+                    type="button"
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => setShowAIGenerator(!showAIGenerator)}
+                    className="flex items-center gap-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium shadow-lg shadow-purple-200"
+                  >
+                    <Sparkles className="w-4 h-4" />
+                    {showAIGenerator ? 'Tutup AI Generator' : 'Generate dengan AI'}
+                  </motion.button>
+                </div>
+
+                {/* AI Generator Panel */}
+                <AnimatePresence>
+                  {showAIGenerator && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
+                      className="mb-4 overflow-hidden"
+                    >
+                      <div className="bg-white rounded-xl p-5 border border-purple-200 shadow-sm">
+                        <div className="flex items-center gap-2 mb-4">
+                          <Wand2 className="w-5 h-5 text-purple-600" />
+                          <h4 className="font-semibold text-purple-900">AI Script Generator</h4>
+                        </div>
+                        
+                        <p className="text-sm text-gray-600 mb-4">
+                          Jawab 5 pertanyaan berikut untuk membantu AI membuat script testimoni yang autentik dan meyakinkan.
+                        </p>
+
+                        {/* Progress Indicator */}
+                        <div className="flex items-center gap-1 mb-4">
+                          {AI_QUESTIONS.map((_, index) => (
+                            <div
+                              key={index}
+                              className={`h-1.5 flex-1 rounded-full transition-colors ${
+                                index < currentQuestionIndex 
+                                  ? 'bg-purple-600' 
+                                  : index === currentQuestionIndex 
+                                    ? 'bg-purple-400' 
+                                    : 'bg-gray-200'
+                              }`}
+                            />
+                          ))}
+                        </div>
+
+                        {/* Question Card */}
+                        <motion.div
+                          key={currentQuestionIndex}
+                          initial={{ opacity: 0, x: 20 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ duration: 0.2 }}
+                          className="mb-4"
+                        >
+                          <div className="flex items-start gap-2 mb-2">
+                            <span className="bg-purple-100 text-purple-700 text-xs font-bold px-2 py-1 rounded">
+                              {currentQuestionIndex + 1}/5
+                            </span>
+                            <p className="text-sm font-medium text-gray-800">
+                              {AI_QUESTIONS[currentQuestionIndex].question}
+                            </p>
+                          </div>
+                          
+                          <div className="flex items-start gap-1 mb-2 text-xs text-gray-500">
+                            <HelpCircle className="w-3 h-3 mt-0.5 flex-shrink-0" />
+                            <span>{AI_QUESTIONS[currentQuestionIndex].helpText}</span>
+                          </div>
+                          
+                          <textarea
+                            value={aiFormData[AI_QUESTIONS[currentQuestionIndex].id as keyof typeof aiFormData] as string}
+                            onChange={(e) => setAiFormData({
+                              ...aiFormData,
+                              [AI_QUESTIONS[currentQuestionIndex].id]: e.target.value
+                            })}
+                            placeholder={AI_QUESTIONS[currentQuestionIndex].placeholder}
+                            rows={3}
+                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 resize-none text-sm"
+                          />
+                        </motion.div>
+
+                        {/* Navigation Buttons */}
+                        <div className="flex items-center justify-between mb-4">
+                          <motion.button
+                            type="button"
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                            onClick={handlePrevQuestion}
+                            disabled={currentQuestionIndex === 0}
+                            className="flex items-center gap-1 text-sm text-gray-600 disabled:opacity-50"
+                          >
+                            <ArrowLeft className="w-4 h-4" />
+                            Sebelumnya
+                          </motion.button>
+                          
+                          {currentQuestionIndex < AI_QUESTIONS.length - 1 ? (
+                            <motion.button
+                              type="button"
+                              whileHover={{ scale: 1.05 }}
+                              whileTap={{ scale: 0.95 }}
+                              onClick={handleNextQuestion}
+                              className="flex items-center gap-1 text-sm bg-purple-100 text-purple-700 px-4 py-2 rounded-lg"
+                            >
+                              Selanjutnya
+                              <ChevronRight className="w-4 h-4" />
+                            </motion.button>
+                          ) : null}
+                        </div>
+
+                        {/* Duration & Style Selection */}
+                        <div className="grid grid-cols-2 gap-4 mb-4 p-4 bg-gray-50 rounded-lg">
+                          <div>
+                            <label className="block text-xs font-medium text-gray-600 mb-2">
+                              <Clock className="w-3 h-3 inline mr-1" />
+                              Durasi Script
+                            </label>
+                            <div className="flex gap-2">
+                              {[15, 20, 25].map((duration) => (
+                                <motion.button
+                                  key={duration}
+                                  type="button"
+                                  whileHover={{ scale: 1.05 }}
+                                  whileTap={{ scale: 0.95 }}
+                                  onClick={() => setAiFormData({ ...aiFormData, duration: duration as DurationType })}
+                                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                                    aiFormData.duration === duration
+                                      ? 'bg-purple-600 text-white'
+                                      : 'bg-white border border-gray-300 text-gray-700'
+                                  }`}
+                                >
+                                  {duration}s
+                                </motion.button>
+                              ))}
+                            </div>
+                          </div>
+                          
+                          <div>
+                            <label className="block text-xs font-medium text-gray-600 mb-2">
+                              Gaya Bahasa
+                            </label>
+                            <select
+                              value={aiFormData.stylePreference}
+                              onChange={(e) => setAiFormData({ ...aiFormData, stylePreference: e.target.value as StyleType })}
+                              className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm"
+                            >
+                              <option value="santai">Santai & Casual</option>
+                              <option value="formal">Formal & Profesional</option>
+                              <option value="emosional">Emosional & Story</option>
+                            </select>
+                          </div>
+                        </div>
+
+                        {/* Error Message */}
+                        {aiError && (
+                          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm flex items-center gap-2">
+                            <AlertCircle className="w-4 h-4" />
+                            {aiError}
+                          </div>
+                        )}
+
+                        {/* Generate Button */}
+                        <motion.button
+                          type="button"
+                          whileHover={{ scale: 1.02 }}
+                          whileTap={{ scale: 0.98 }}
+                          onClick={handleGenerateScript}
+                          disabled={isGeneratingScript || !isAllQuestionsAnswered()}
+                          className="w-full bg-gradient-to-r from-purple-600 to-blue-600 text-white py-3 rounded-lg font-medium flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
+                        >
+                          {isGeneratingScript ? (
+                            <>
+                              <Loader2 className="w-5 h-5 animate-spin" />
+                              AI sedang membuat script...
+                            </>
+                          ) : (
+                            <>
+                              <Sparkles className="w-5 h-5" />
+                              Generate Script dengan AI
+                            </>
+                          )}
+                        </motion.button>
+
+                        {!isAllQuestionsAnswered() && (
+                          <p className="text-xs text-gray-500 text-center mt-2">
+                            Jawab semua 5 pertanyaan untuk generate script
+                          </p>
+                        )}
+
+                        {/* Generated Script Result */}
+                        <AnimatePresence>
+                          {generatedScript && (
+                            <motion.div
+                              initial={{ opacity: 0, y: 10 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              exit={{ opacity: 0, y: -10 }}
+                              className="mt-4 p-4 bg-gradient-to-br from-green-50 to-emerald-50 border border-green-200 rounded-xl"
+                            >
+                              <div className="flex items-center justify-between mb-3">
+                                <div className="flex items-center gap-2">
+                                  <Check className="w-5 h-5 text-green-600" />
+                                  <span className="font-semibold text-green-800">Script Hasil AI</span>
+                                </div>
+                                <motion.button
+                                  type="button"
+                                  whileHover={{ scale: 1.05 }}
+                                  whileTap={{ scale: 0.95 }}
+                                  onClick={handleGenerateScript}
+                                  className="flex items-center gap-1 text-xs text-gray-600 hover:text-purple-600"
+                                >
+                                  <RefreshCw className="w-3 h-3" />
+                                  Generate Ulang
+                                </motion.button>
+                              </div>
+                              
+                              <div className="bg-white p-4 rounded-lg border border-green-100 mb-4">
+                                <p className="text-gray-800 whitespace-pre-wrap text-sm leading-relaxed">
+                                  {generatedScript}
+                                </p>
+                              </div>
+                              
+                              <div className="flex gap-2">
+                                <motion.button
+                                  type="button"
+                                  whileHover={{ scale: 1.02 }}
+                                  whileTap={{ scale: 0.98 }}
+                                  onClick={handleUseAIScript}
+                                  className="flex-1 bg-green-600 text-white py-2.5 rounded-lg font-medium flex items-center justify-center gap-2"
+                                >
+                                  <Check className="w-4 h-4" />
+                                  Gunakan Saran AI
+                                </motion.button>
+                                <motion.button
+                                  type="button"
+                                  whileHover={{ scale: 1.02 }}
+                                  whileTap={{ scale: 0.98 }}
+                                  onClick={() => setGeneratedScript('')}
+                                  className="px-4 py-2.5 border border-gray-300 rounded-lg text-gray-600"
+                                >
+                                  <X className="w-4 h-4" />
+                                </motion.button>
+                              </div>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                {/* Manual Script Input */}
                 <textarea
                   value={formData.testimonialScript}
                   onChange={(e) => setFormData({ ...formData, testimonialScript: e.target.value })}
-                  placeholder="Ceritakan pengalaman menggunakan produk/jasa kami..."
-                  rows={2}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 resize-none"
+                  placeholder="Ceritakan pengalaman menggunakan produk/jasa kami... (atau gunakan AI Generator di atas)"
+                  rows={4}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 resize-none bg-white"
                 />
+                {formData.testimonialScript && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    {formData.testimonialScript.split(' ').length} kata
+                  </p>
+                )}
               </div>
 
+              {/* Gesture Description */}
               <div>
                 <label className="block text-sm font-medium mb-2">Petunjuk Gesture</label>
                 <textarea
