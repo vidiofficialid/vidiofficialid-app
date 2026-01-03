@@ -6,24 +6,26 @@ const siteUrl = 'https://vidi.official.id'
 export const metadata: Metadata = {
   // Basic Meta Tags
   title: {
-    default: 'VidiOfficialID - Layanan Video Testimonial untuk UMKM Indonesia',
+    default: 'VidiOfficialID - Layanan Video Testimonial untuk Pelaku Usaha Indonesia',
     template: '%s | VidiOfficialID',
   },
   description:
-    'vidi.official.id solusi untuk usaha Anda mendapatkan video testimonial dari konsumen. Dengan teknologi aplikasi website terkini, pengguna tidak perlu download aplikasi cukup buka link di browser Chrome.',
+    'vidi.official.id solusi untuk usaha Anda mendapatkan video testimonial dari konsumen. Dengan teknologi aplikasi website terkini, pengguna tidak perlu download aplikasi cukup buka link di browser Chrome atau Safari dari Smartphone anda.',
   keywords: [
     'layanan video testimonial',
     'video testimonial',
-    'social proof produk UMKM',
-    'digital marketing UMKM',
+    'social proof produk / jasa',
+    'digital marketing usaha',
     'testimonial pelanggan',
     'review video',
     'UMKM Indonesia',
-    'marketing UMKM',
+    'marketing produk',
+    'marketing jasa'
     'bukti sosial',
     'testimoni video',
     'platform testimonial',
     'customer reviews Indonesia',
+    'website yang membantu membuat video testimoni',
   ],
   authors: [{ name: 'VidiOfficial', url: siteUrl }],
   creator: 'VidiOfficial',
