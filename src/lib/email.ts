@@ -3,6 +3,24 @@ import { Resend } from 'resend'
 // Lazy initialization to prevent build-time errors
 let resendClient: Resend | null = null
 
+// Get a valid from email address
+function getFromEmail(): string {
+  let fromEmail = process.env.RESEND_FROM_EMAIL
+
+  // Clean up quotes if present (common mistake in env vars)
+  if (fromEmail) {
+    fromEmail = fromEmail.replace(/^["']|["']$/g, '')
+  }
+
+  // If RESEND_FROM_EMAIL is set and looks valid, use it
+  if (fromEmail && (fromEmail.includes('@') || fromEmail.includes('<'))) {
+    return fromEmail
+  }
+
+  // Fallback to Resend's testing domain (works without domain verification)
+  return 'VidiOfficial <onboarding@resend.dev>'
+}
+
 function getResendClient(): Resend | null {
   if (!process.env.RESEND_API_KEY) {
     console.warn('RESEND_API_KEY is not configured')
@@ -26,7 +44,7 @@ export async function sendWelcomeEmail(email: string, name: string) {
 
   try {
     const { error } = await resend.emails.send({
-      from: process.env.RESEND_FROM_EMAIL || 'VidiOfficial <noreply@vidi.official.id>',
+      from: getFromEmail(),
       to: email,
       subject: 'Selamat Datang di VidiOfficialID! 🎉',
       html: `
@@ -99,7 +117,7 @@ export async function sendPasswordResetEmail(email: string, resetLink: string) {
 
   try {
     const { error } = await resend.emails.send({
-      from: process.env.RESEND_FROM_EMAIL || 'VidiOfficial <noreply@vidi.official.id>',
+      from: getFromEmail(),
       to: email,
       subject: 'Reset Password - VidiOfficialID',
       html: `
@@ -168,7 +186,7 @@ export async function sendInvitationEmail(
 
   try {
     const { error } = await resend.emails.send({
-      from: process.env.RESEND_FROM_EMAIL || 'VidiOfficial <noreply@vidi.official.id>',
+      from: getFromEmail(),
       to: email,
       subject: `Undangan Video Testimoni untuk ${brandName} 🎬`,
       html: `
