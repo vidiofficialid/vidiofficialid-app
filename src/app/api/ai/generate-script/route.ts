@@ -5,6 +5,14 @@ import { GoogleGenerativeAI } from '@google/generative-ai'
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
+// Model options - fallback list
+const GEMINI_MODELS = [
+  'gemini-2.0-flash',      // Newest, fast
+  'gemini-1.5-flash-latest', // Latest flash
+  'gemini-1.5-pro-latest',   // Latest pro
+  'gemini-pro',              // Stable legacy
+]
+
 interface ScriptRequest {
   // 5 pertanyaan utama
   problemToSolve: string      // Masalah/kebutuhan yang diselesaikan
@@ -106,10 +114,28 @@ ${body.duration === 15 ? `
 
 Berikan HANYA script saja tanpa keterangan tambahan. Script harus siap dibaca langsung.`
 
-    // Generate dengan Gemini
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' })
-    const result = await model.generateContent(prompt)
-    const generatedScript = result.response.text()
+    // Try generating with available models (with fallback)
+    let generatedScript = ''
+    let lastError = null
+    
+    for (const modelName of GEMINI_MODELS) {
+      try {
+        console.log(`Trying model: ${modelName}`)
+        const model = genAI.getGenerativeModel({ model: modelName })
+        const result = await model.generateContent(prompt)
+        generatedScript = result.response.text()
+        console.log(`Success with model: ${modelName}`)
+        break // Success, exit loop
+      } catch (modelError) {
+        console.error(`Model ${modelName} failed:`, modelError)
+        lastError = modelError
+        continue // Try next model
+      }
+    }
+
+    if (!generatedScript) {
+      throw lastError || new Error('Semua model AI gagal')
+    }
 
     // Clean up script (hapus quotes jika ada)
     const cleanScript = generatedScript
