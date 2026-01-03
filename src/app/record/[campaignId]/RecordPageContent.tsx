@@ -68,7 +68,7 @@ export function RecordPageContent({ campaign, business }: RecordPageContentProps
       <header className="bg-white border-b border-gray-200 sticky top-0 z-50">
         <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-center">
           <Image
-            src="https://res.cloudinary.com/dsv8iy2la/image/upload/v1735742800/vidi-logo_xwbjle.png"
+            src="https://res.cloudinary.com/dsv8iy2la/image/upload/v1766922503/logo_k0q2cc.png"
             alt="VidiOfficialID"
             width={48}
             height={48}
@@ -126,8 +126,8 @@ export function RecordPageContent({ campaign, business }: RecordPageContentProps
                 )}
 
                 <p className="text-gray-700 text-sm leading-relaxed">
-                  Kami sangat menghargai pendapat Anda! Bagikan pengalaman Anda menggunakan 
-                  produk/layanan kami dalam bentuk video testimonial. Video Anda akan membantu 
+                  Kami sangat menghargai pendapat Anda! Bagikan pengalaman Anda menggunakan
+                  produk/layanan kami dalam bentuk video testimonial. Video Anda akan membantu
                   calon pelanggan lain membuat keputusan yang tepat.
                 </p>
               </div>
@@ -150,11 +150,10 @@ export function RecordPageContent({ campaign, business }: RecordPageContentProps
                       key={device.id}
                       whileTap={{ scale: 0.98 }}
                       onClick={() => handleDeviceSelect(device.id)}
-                      className={`w-full p-4 rounded-xl border-2 transition-all flex items-center justify-between ${
-                        isSelected
+                      className={`w-full p-4 rounded-xl border-2 transition-all flex items-center justify-between ${isSelected
                           ? 'border-orange-500 bg-orange-50'
                           : 'border-gray-200 bg-white hover:border-orange-300'
-                      }`}
+                        }`}
                     >
                       <div className="flex items-center gap-3">
                         <Icon
@@ -165,9 +164,9 @@ export function RecordPageContent({ campaign, business }: RecordPageContentProps
                           {device.label}
                         </span>
                       </div>
-                      <ChevronRight 
-                        size={20} 
-                        className={isSelected ? 'text-orange-600' : 'text-gray-400'} 
+                      <ChevronRight
+                        size={20}
+                        className={isSelected ? 'text-orange-600' : 'text-gray-400'}
                       />
                     </motion.button>
                   )
@@ -191,11 +190,10 @@ export function RecordPageContent({ campaign, business }: RecordPageContentProps
                         key={os}
                         whileTap={{ scale: 0.95 }}
                         onClick={() => handleOSSelect(os)}
-                        className={`p-3 rounded-xl border-2 transition-all text-sm ${
-                          selectedOS === os
+                        className={`p-3 rounded-xl border-2 transition-all text-sm ${selectedOS === os
                             ? 'border-orange-500 bg-orange-50 text-orange-600 font-medium'
                             : 'border-gray-200 bg-white hover:border-orange-300 text-gray-700'
-                        }`}
+                          }`}
                       >
                         {os}
                       </motion.button>
@@ -270,8 +268,8 @@ export function RecordPageContent({ campaign, business }: RecordPageContentProps
             {navItems.map((item) => {
               const Icon = item.icon
               const isActive = currentStep === item.id
-              const isAccessible = 
-                item.id === 'about' || 
+              const isAccessible =
+                item.id === 'about' ||
                 (item.id === 'record' && selectedDevice && selectedOS) ||
                 (item.id === 'rate' && recordedVideo)
 
@@ -284,13 +282,12 @@ export function RecordPageContent({ campaign, business }: RecordPageContentProps
                     }
                   }}
                   disabled={!isAccessible}
-                  className={`flex flex-col items-center py-2 px-6 rounded-lg transition-all ${
-                    isActive 
-                      ? 'text-orange-600' 
-                      : isAccessible 
-                        ? 'text-gray-500 hover:text-gray-700' 
+                  className={`flex flex-col items-center py-2 px-6 rounded-lg transition-all ${isActive
+                      ? 'text-orange-600'
+                      : isAccessible
+                        ? 'text-gray-500 hover:text-gray-700'
                         : 'text-gray-300 cursor-not-allowed'
-                  }`}
+                    }`}
                 >
                   <Icon size={24} className={isActive ? 'text-orange-600' : ''} />
                   <span className={`text-xs mt-1 ${isActive ? 'font-medium' : ''}`}>
