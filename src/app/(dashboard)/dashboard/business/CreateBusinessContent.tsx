@@ -93,8 +93,8 @@ export function CreateBusinessContent({
     field: keyof BusinessForm,
     value: string | File | null
   ) => {
-    setBusinessForms(
-      businessForms.map((form) =>
+    setBusinessForms((prev) =>
+      prev.map((form) =>
         form.id === id ? { ...form, [field]: value } : form
       )
     )
@@ -109,9 +109,14 @@ export function CreateBusinessContent({
     if (file) {
       const reader = new FileReader()
       reader.onloadend = () => {
-        if (isEditMode && editForm) {
-          setEditForm({ ...editForm, logo: reader.result as string, logoFile: file })
+        if (isEditMode) {
+          setEditForm((prev) =>
+            prev ? { ...prev, logo: reader.result as string, logoFile: file } : null
+          )
         } else {
+          // Update both fields safely using the new functional updateBusinessForm
+          // Or better, since we can't batch easily with the current signature of updateBusinessForm without changing it significantly,
+          // we rely on the functional update inside updateBusinessForm to sequence them correctly.
           updateBusinessForm(id, 'logo', reader.result as string)
           updateBusinessForm(id, 'logoFile', file)
         }
@@ -425,8 +430,8 @@ export function CreateBusinessContent({
                         key={cat}
                         whileHover={{ scale: 1.02 }}
                         className={`flex items-center justify-center p-4 border-2 rounded-lg cursor-pointer ${form.category === cat
-                            ? 'border-purple-500 bg-purple-50 text-purple-700'
-                            : 'border-gray-300'
+                          ? 'border-purple-500 bg-purple-50 text-purple-700'
+                          : 'border-gray-300'
                           }`}
                       >
                         <input
@@ -629,8 +634,8 @@ export function CreateBusinessContent({
                       <label
                         key={cat}
                         className={`flex items-center justify-center p-4 border-2 rounded-lg cursor-pointer ${editForm.category === cat
-                            ? 'border-purple-500 bg-purple-50 text-purple-700'
-                            : 'border-gray-300'
+                          ? 'border-purple-500 bg-purple-50 text-purple-700'
+                          : 'border-gray-300'
                           }`}
                       >
                         <input
