@@ -1,35 +1,67 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { GoogleGenerativeAI } from '@google/generative-ai'
 
-// Force Node.js runtime (not Edge) for compatibility with @google/generative-ai
+// Force Node.js runtime
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
-// Model options - fallback list
+// Model options - will try in order (hemat token first)
+// Based on available models from /api/ai/list-models
 const GEMINI_MODELS = [
-  'gemini-2.0-flash',      // Newest, fast
-  'gemini-1.5-flash-latest', // Latest flash
-  'gemini-1.5-pro-latest',   // Latest pro
-  'gemini-pro',              // Stable legacy
+  'gemini-2.0-flash-lite',   // Paling hemat & cepat
+  'gemini-2.0-flash',        // Fast and versatile
+  'gemini-2.5-flash',        // Stable mid-size
+  'gemini-2.5-flash-lite',   // Stable lite version
 ]
 
 interface ScriptRequest {
-  // 5 pertanyaan utama
-  problemToSolve: string      // Masalah/kebutuhan yang diselesaikan
-  differentiation: string     // Alasan memilih produk/jasa
-  expectedExperience: string  // Pengalaman yang diharapkan
-  expectedBenefit: string     // Manfaat/dampak yang diharapkan
-  targetRecommendation: string // Kepada siapa merekomendasikan
+  problemToSolve: string
+  differentiation: string
+  expectedExperience: string
+  expectedBenefit: string
+  targetRecommendation: string
+  duration: 15 | 20 | 25
+  brandName: string
+  stylePreference?: 'formal' | 'santai' | 'emosional'
+}
+
+// Helper function to call Gemini API directly via REST
+async function generateWithGemini(apiKey: string, modelName: string, prompt: string): Promise<string> {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`
   
-  // Opsi tambahan
-  duration: 15 | 20 | 25      // Durasi script dalam detik
-  brandName: string           // Nama brand/produk
-  stylePreference?: 'formal' | 'santai' | 'emosional' // Gaya bahasa
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      contents: [{
+        parts: [{ text: prompt }]
+      }],
+      generationConfig: {
+        temperature: 0.7,
+        maxOutputTokens: 500,
+      }
+    })
+  })
+
+  if (!response.ok) {
+    const errorData = await response.json()
+    throw new Error(errorData.error?.message || `HTTP ${response.status}`)
+  }
+
+  const data = await response.json()
+  
+  // Extract text from response
+  const text = data.candidates?.[0]?.content?.parts?.[0]?.text
+  if (!text) {
+    throw new Error('No text in response')
+  }
+  
+  return text
 }
 
 export async function POST(request: NextRequest) {
   try {
-    // Check API Key first
     const apiKey = process.env.GEMINI_API_KEY
     if (!apiKey) {
       console.error('GEMINI_API_KEY is not configured')
@@ -39,9 +71,6 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Initialize Gemini AI inside the handler
-    const genAI = new GoogleGenerativeAI(apiKey)
-    
     const body: ScriptRequest = await request.json()
     
     // Validasi input
@@ -60,22 +89,18 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Hitung estimasi jumlah kata berdasarkan durasi
-    // Rata-rata orang bicara 120-150 kata per menit = 2-2.5 kata per detik
     const wordCount = {
       15: '30-40',
       20: '40-55',
       25: '55-70'
     }[body.duration]
 
-    // Tentukan gaya bahasa
     const styleGuide = {
       formal: 'Gunakan bahasa Indonesia baku dan profesional. Hindari bahasa gaul.',
       santai: 'Gunakan bahasa Indonesia sehari-hari yang ramah dan casual. Boleh sedikit informal.',
       emosional: 'Gunakan bahasa yang menyentuh emosi, bercerita dengan perasaan. Gunakan kata-kata yang membangkitkan empati.'
     }[body.stylePreference || 'santai']
 
-    // Build prompt untuk Gemini
     const prompt = `Kamu adalah copywriter profesional Indonesia yang ahli membuat script video testimonial yang autentik dan meyakinkan.
 
 KONTEKS PRODUK/JASA: ${body.brandName || 'Produk/Jasa'}
@@ -114,33 +139,40 @@ ${body.duration === 15 ? `
 
 Berikan HANYA script saja tanpa keterangan tambahan. Script harus siap dibaca langsung.`
 
-    // Try generating with available models (with fallback)
+    // Try each model until one works
     let generatedScript = ''
-    let lastError = null
+    let lastError: Error | null = null
+    let successModel = ''
     
     for (const modelName of GEMINI_MODELS) {
       try {
         console.log(`Trying model: ${modelName}`)
-        const model = genAI.getGenerativeModel({ model: modelName })
-        const result = await model.generateContent(prompt)
-        generatedScript = result.response.text()
-        console.log(`Success with model: ${modelName}`)
-        break // Success, exit loop
+        generatedScript = await generateWithGemini(apiKey, modelName, prompt)
+        successModel = modelName
+        console.log(`✅ Success with model: ${modelName}`)
+        break
       } catch (modelError) {
-        console.error(`Model ${modelName} failed:`, modelError)
-        lastError = modelError
-        continue // Try next model
+        console.error(`❌ Model ${modelName} failed:`, modelError instanceof Error ? modelError.message : modelError)
+        lastError = modelError instanceof Error ? modelError : new Error(String(modelError))
+        continue
       }
     }
 
     if (!generatedScript) {
-      throw lastError || new Error('Semua model AI gagal')
+      // Return more helpful error with list of tried models
+      return NextResponse.json(
+        { 
+          error: `Semua model AI gagal. Error terakhir: ${lastError?.message || 'Unknown'}. Cek /api/ai/list-models untuk melihat model yang tersedia.`,
+          triedModels: GEMINI_MODELS
+        },
+        { status: 500 }
+      )
     }
 
-    // Clean up script (hapus quotes jika ada)
+    // Clean up script
     const cleanScript = generatedScript
       .replace(/^["']|["']$/g, '')
-      .replace(/^\*\*.*\*\*\n?/gm, '') // Hapus bold headers
+      .replace(/^\*\*.*\*\*\n?/gm, '')
       .trim()
 
     return NextResponse.json({
@@ -149,25 +181,25 @@ Berikan HANYA script saja tanpa keterangan tambahan. Script harus siap dibaca la
       metadata: {
         duration: body.duration,
         estimatedWords: wordCount,
-        style: body.stylePreference || 'santai'
+        style: body.stylePreference || 'santai',
+        model: successModel
       }
     })
 
   } catch (error) {
     console.error('AI Script Generation Error:', error)
     
-    // Check if it's a Gemini API error
     if (error instanceof Error) {
       const errorMessage = error.message.toLowerCase()
       
-      if (errorMessage.includes('api_key') || errorMessage.includes('api key')) {
+      if (errorMessage.includes('api_key') || errorMessage.includes('api key') || errorMessage.includes('invalid')) {
         return NextResponse.json(
           { error: 'API Key tidak valid. Periksa konfigurasi GEMINI_API_KEY.' },
           { status: 500 }
         )
       }
       
-      if (errorMessage.includes('quota') || errorMessage.includes('rate limit')) {
+      if (errorMessage.includes('quota') || errorMessage.includes('rate limit') || errorMessage.includes('resource exhausted')) {
         return NextResponse.json(
           { error: 'Kuota API habis. Coba lagi nanti.' },
           { status: 429 }
@@ -181,7 +213,6 @@ Berikan HANYA script saja tanpa keterangan tambahan. Script harus siap dibaca la
         )
       }
 
-      // Return actual error message for debugging
       return NextResponse.json(
         { error: `Gagal generate script: ${error.message}` },
         { status: 500 }
