@@ -426,21 +426,7 @@ export function RecordSection({ campaignData, campaignId, customScript, onRecord
               autoPlay
               playsInline
               muted
-              className="w-full h-full object-cover"
-              style={{
-                transform: needsRotation
-                  ? 'rotate(-90deg) scaleX(-1)'
-                  : 'scaleX(-1)',
-                transformOrigin: 'center center',
-                // Swap width/height when rotated
-                width: needsRotation ? '177.78%' : '100%', // 16/9 ratio adjustment
-                height: needsRotation ? '56.25%' : '100%',
-                position: needsRotation ? 'absolute' : 'relative',
-                top: needsRotation ? '50%' : 'auto',
-                left: needsRotation ? '50%' : 'auto',
-                marginTop: needsRotation ? '-28.125%' : '0',
-                marginLeft: needsRotation ? '-88.89%' : '0',
-              }}
+              className="w-full h-full object-cover scale-x-[-1]"
             />
           )}
 
