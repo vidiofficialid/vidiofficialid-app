@@ -66,6 +66,7 @@ const nextConfig: NextConfig = {
               "font-src 'self' https://fonts.gstatic.com",
               "connect-src 'self' https://*.supabase.co https://www.google-analytics.com https://region1.google-analytics.com wss://*.supabase.co https://*.ywxi.net https://s3-us-west-2.amazonaws.com",
               "frame-ancestors 'self'",
+              "frame-src 'self' https://www.trustedsite.com",
               "base-uri 'self'",
               "form-action 'self'",
               "media-src 'self' blob: https://res.cloudinary.com",
