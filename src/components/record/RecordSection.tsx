@@ -9,13 +9,14 @@ interface RecordSectionProps {
     transcript: string
     gestureGuide?: string
   }
+  customScript?: string
   onRecordingComplete: (videoBlob: Blob) => void
   deviceInfo: { device: string; os: string } | null
 }
 
 type RecordingState = 'idle' | 'countdown' | 'recording' | 'preview'
 
-export function RecordSection({ campaignData, onRecordingComplete, deviceInfo }: RecordSectionProps) {
+export function RecordSection({ campaignData, customScript, onRecordingComplete, deviceInfo }: RecordSectionProps) {
   const [recordingState, setRecordingState] = useState<RecordingState>('idle')
   const [countdown, setCountdown] = useState(3)
   const [recordingTime, setRecordingTime] = useState(0)
@@ -43,12 +44,16 @@ export function RecordSection({ campaignData, onRecordingComplete, deviceInfo }:
           return
         }
 
-        // Less aggressive constraints for better iOS compatibility
+        // Force portrait mode - swap width/height for 9:16 ratio on mobile
+        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
+
         const constraints = {
           video: {
-            width: { ideal: 480, max: 720 },
-            height: { ideal: 854, max: 1280 },
+            // For portrait: height should be larger than width
+            width: isMobile ? { ideal: 720, max: 1080 } : { ideal: 720 },
+            height: isMobile ? { ideal: 1280, max: 1920 } : { ideal: 1280 },
             facingMode: 'user',
+            aspectRatio: isMobile ? { ideal: 9 / 16 } : undefined,
           },
           audio: true,
         }
@@ -231,11 +236,13 @@ export function RecordSection({ campaignData, onRecordingComplete, deviceInfo }:
               className="absolute top-0 left-0 right-0 bg-black/30 backdrop-blur-sm p-5 z-20">
               <div className="flex items-center gap-2 mb-2">
                 <Camera className="w-5 h-5 text-orange-400" />
-                <h4 className="text-white font-medium text-sm">Script:</h4>
+                <h4 className="text-white font-medium text-sm">
+                  {customScript ? 'Script Anda:' : 'Script:'}
+                </h4>
               </div>
               <div className="overflow-y-auto max-h-32 text-shadow-sm scrollbar-thin scrollbar-thumb-white/20">
                 <p className="text-white/90 text-sm leading-relaxed whitespace-pre-line font-medium text-shadow">
-                  {campaignData.transcript}
+                  {customScript || campaignData.transcript}
                 </p>
               </div>
             </motion.div>

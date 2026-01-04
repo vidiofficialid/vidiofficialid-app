@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Image from 'next/image'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Monitor, Smartphone, Tablet, Info, Video, Star, ChevronRight } from 'lucide-react'
+import { Monitor, Smartphone, Tablet, Info, Video, Star, ChevronRight, FileText } from 'lucide-react'
 import { RecordSection } from '@/components/record/RecordSection'
 import { RateSection } from '@/components/record/RateSection'
 import type { Campaign, Business } from '@/types/database'
@@ -20,6 +20,8 @@ export function RecordPageContent({ campaign, business }: RecordPageContentProps
   const [selectedDevice, setSelectedDevice] = useState('')
   const [selectedOS, setSelectedOS] = useState('')
   const [recordedVideo, setRecordedVideo] = useState<Blob | null>(null)
+  const [customScript, setCustomScript] = useState('')
+  const [showCustomScript, setShowCustomScript] = useState(false)
 
   const handleDeviceSelect = (device: string) => {
     setSelectedDevice(device)
@@ -151,8 +153,8 @@ export function RecordPageContent({ campaign, business }: RecordPageContentProps
                       whileTap={{ scale: 0.98 }}
                       onClick={() => handleDeviceSelect(device.id)}
                       className={`w-full p-4 rounded-xl border-2 transition-all flex items-center justify-between ${isSelected
-                          ? 'border-orange-500 bg-orange-50'
-                          : 'border-gray-200 bg-white hover:border-orange-300'
+                        ? 'border-orange-500 bg-orange-50'
+                        : 'border-gray-200 bg-white hover:border-orange-300'
                         }`}
                     >
                       <div className="flex items-center gap-3">
@@ -191,13 +193,74 @@ export function RecordPageContent({ campaign, business }: RecordPageContentProps
                         whileTap={{ scale: 0.95 }}
                         onClick={() => handleOSSelect(os)}
                         className={`p-3 rounded-xl border-2 transition-all text-sm ${selectedOS === os
-                            ? 'border-orange-500 bg-orange-50 text-orange-600 font-medium'
-                            : 'border-gray-200 bg-white hover:border-orange-300 text-gray-700'
+                          ? 'border-orange-500 bg-orange-50 text-orange-600 font-medium'
+                          : 'border-gray-200 bg-white hover:border-orange-300 text-gray-700'
                           }`}
                       >
                         {os}
                       </motion.button>
                     ))}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Custom Script Section */}
+            <AnimatePresence>
+              {selectedDevice && selectedOS && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="mt-6"
+                >
+                  <div className="bg-white rounded-2xl shadow-lg p-5">
+                    <button
+                      type="button"
+                      onClick={() => setShowCustomScript(!showCustomScript)}
+                      className="w-full flex items-center justify-between"
+                    >
+                      <div className="flex items-center gap-3">
+                        <FileText className="w-5 h-5 text-orange-600" />
+                        <span className="font-semibold text-gray-900">
+                          Tulis Script Sendiri (Opsional)
+                        </span>
+                      </div>
+                      <ChevronRight
+                        className={`w-5 h-5 text-gray-400 transition-transform ${showCustomScript ? 'rotate-90' : ''}`}
+                      />
+                    </button>
+
+                    <AnimatePresence>
+                      {showCustomScript && (
+                        <motion.div
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: 'auto' }}
+                          exit={{ opacity: 0, height: 0 }}
+                          className="mt-4"
+                        >
+                          <p className="text-gray-500 text-sm mb-3">
+                            Anda bisa menulis script sendiri untuk dibaca saat merekam, atau gunakan script yang sudah disiapkan.
+                          </p>
+                          <textarea
+                            value={customScript}
+                            onChange={(e) => setCustomScript(e.target.value)}
+                            placeholder="Ketik script Anda di sini... (Contoh: Halo, nama saya [nama]. Saya sudah menggunakan produk ini selama...)"
+                            className="w-full p-4 border border-gray-200 rounded-xl resize-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 focus:outline-none"
+                            rows={4}
+                          />
+                          {customScript && (
+                            <button
+                              type="button"
+                              onClick={() => setCustomScript('')}
+                              className="mt-2 text-sm text-orange-600 hover:text-orange-700"
+                            >
+                              Gunakan script default
+                            </button>
+                          )}
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                   </div>
                 </motion.div>
               )}
@@ -238,6 +301,7 @@ export function RecordPageContent({ campaign, business }: RecordPageContentProps
                 transcript: campaign.testimonial_script || 'Ceritakan pengalaman Anda dengan produk/layanan kami...',
                 gestureGuide: campaign.gesture_guide || '',
               }}
+              customScript={customScript.trim() || undefined}
               onRecordingComplete={handleRecordingComplete}
               deviceInfo={{ device: selectedDevice, os: selectedOS }}
             />
@@ -283,10 +347,10 @@ export function RecordPageContent({ campaign, business }: RecordPageContentProps
                   }}
                   disabled={!isAccessible}
                   className={`flex flex-col items-center py-2 px-6 rounded-lg transition-all ${isActive
-                      ? 'text-orange-600'
-                      : isAccessible
-                        ? 'text-gray-500 hover:text-gray-700'
-                        : 'text-gray-300 cursor-not-allowed'
+                    ? 'text-orange-600'
+                    : isAccessible
+                      ? 'text-gray-500 hover:text-gray-700'
+                      : 'text-gray-300 cursor-not-allowed'
                     }`}
                 >
                   <Icon size={24} className={isActive ? 'text-orange-600' : ''} />
