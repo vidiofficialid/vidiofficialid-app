@@ -5,15 +5,26 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { Menu, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { analytics } from '@/components/analytics/GoogleAnalytics'
 
 export function Navbar() {
   const [isOpen, setIsOpen] = useState(false)
 
   const navLinks = [
-    { href: '/#features', label: 'Features' },
-    { href: '/#how-it-works', label: 'How It Works' },
-    { href: '/#blog', label: 'Blog' },
+    { href: '#features', label: 'Features' },
+    { href: '#how-it-works', label: 'How It Works' },
+    { href: '#blog', label: 'Blog' },
   ]
+
+  // Track login button click
+  const handleLoginClick = () => {
+    analytics.trackLoginClick('navbar')
+  }
+
+  // Track signup/register button click
+  const handleSignupClick = () => {
+    analytics.trackSignupClick('navbar')
+  }
 
   return (
     <nav className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b-4 border-gray-900 shadow-lg">
@@ -46,12 +57,12 @@ export function Navbar() {
 
           {/* Desktop CTA */}
           <div className="hidden md:flex items-center gap-4">
-            <Link href="/login">
+            <Link href="/login" onClick={handleLoginClick}>
               <Button variant="ghost" className="text-gray-900 hover:text-amber-400">
                 Login
               </Button>
             </Link>
-            <Link href="/register">
+            <Link href="/register" onClick={handleSignupClick}>
               <Button className="bg-gray-900 text-white px-6 py-3 hover:bg-amber-400 hover:text-gray-900 shadow-lg">
                 Get Started
               </Button>
@@ -83,12 +94,12 @@ export function Navbar() {
                 </Link>
               ))}
               <hr className="border-gray-200" />
-              <Link href="/login" onClick={() => setIsOpen(false)}>
+              <Link href="/login" onClick={() => { setIsOpen(false); handleLoginClick(); }}>
                 <Button variant="ghost" className="w-full justify-start text-gray-900 hover:text-amber-400">
                   Login
                 </Button>
               </Link>
-              <Link href="/register" onClick={() => setIsOpen(false)}>
+              <Link href="/register" onClick={() => { setIsOpen(false); handleSignupClick(); }}>
                 <Button className="w-full bg-gray-900 text-white hover:bg-amber-400 hover:text-gray-900">
                   Get Started
                 </Button>

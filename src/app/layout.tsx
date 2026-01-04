@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next'
 import './globals.css'
+import { GoogleAnalytics } from '@/components/analytics/GoogleAnalytics'
 
 const siteUrl = 'https://vidi.official.id'
 
@@ -247,7 +248,10 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className="font-sans antialiased">{children}</body>
+      <body className="font-sans antialiased">
+        <GoogleAnalytics />
+        {children}
+      </body>
     </html>
   )
 }

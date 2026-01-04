@@ -1,9 +1,18 @@
+'use client'
+
 import Link from 'next/link'
 import Image from 'next/image'
 import { ArrowRight, Play } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { analytics } from '@/components/analytics/GoogleAnalytics'
 
 export function HeroSection() {
+  // Track CTA clicks
+  const handleGetStartedClick = () => {
+    analytics.trackCTAClick('get_started', 'hero_section')
+    analytics.trackSignupClick('hero_section')
+  }
+
   return (
     <section className="relative overflow-hidden bg-gradient-to-br from-amber-50 via-white to-cyan-50 py-20 px-4">
       <div className="container mx-auto max-w-7xl">
@@ -34,7 +43,7 @@ export function HeroSection() {
             </div>
 
             <div className="flex flex-wrap gap-4">
-              <Link href="/register">
+              <Link href="/register" onClick={handleGetStartedClick}>
                 <Button className="group bg-gray-900 text-white px-8 py-4 h-auto hover:bg-gray-800 shadow-lg hover:shadow-xl">
                   Get Started
                   <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
