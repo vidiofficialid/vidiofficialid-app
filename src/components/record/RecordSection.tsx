@@ -264,13 +264,19 @@ export function RecordSection({ campaignData, campaignId, customScript, onRecord
           canvas.width = video.videoHeight
           canvas.height = video.videoWidth
 
-          // Save context, rotate, draw, restore
+          // Clear and draw rotated
+          ctx.clearRect(0, 0, canvas.width, canvas.height)
           ctx.save()
+
+          // Move to center
           ctx.translate(canvas.width / 2, canvas.height / 2)
-          ctx.rotate(-90 * Math.PI / 180)
-          // Mirror horizontally for front camera
+          // Rotate 90 degrees clockwise (positive)
+          ctx.rotate(90 * Math.PI / 180)
+          // Mirror horizontally for front camera (selfie)
           ctx.scale(-1, 1)
+          // Draw centered
           ctx.drawImage(video, -video.videoWidth / 2, -video.videoHeight / 2)
+
           ctx.restore()
         } else {
           // Normal portrait - just mirror

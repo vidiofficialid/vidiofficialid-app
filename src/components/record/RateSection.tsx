@@ -32,25 +32,37 @@ export function RateSection({ campaign, business, recordedVideo }: RateSectionPr
     // Auto-rotate video based on metadata and force portrait orientation
     formData.append('eager', 'a_auto_right,c_fill,ar_9:16')
 
-    const response = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/video/upload`, {
-      method: 'POST',
-      body: formData,
-    })
+    try {
+      const response = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/video/upload`, {
+        method: 'POST',
+        body: formData,
+      })
 
-    if (!response.ok) throw new Error('Gagal upload video')
+      if (!response.ok) {
+        const errorText = await response.text()
+        console.error('Cloudinary upload failed:', response.status, errorText)
+        throw new Error(`Upload gagal (${response.status}): ${errorText.substring(0, 100)}`)
+      }
 
-    const data = await response.json()
+      const data = await response.json()
 
-    // Use eager transformation URL if available, otherwise use original with transformation
-    let videoUrl = data.secure_url
-    if (data.eager && data.eager[0]) {
-      videoUrl = data.eager[0].secure_url
-    } else {
-      // Apply transformation via URL if eager not available
-      videoUrl = data.secure_url.replace('/upload/', '/upload/a_auto_right,c_fill,ar_9:16/')
+      // Use eager transformation URL if available, otherwise use original with transformation
+      let videoUrl = data.secure_url
+      if (data.eager && data.eager[0]) {
+        videoUrl = data.eager[0].secure_url
+      } else {
+        // Apply transformation via URL if eager not available
+        videoUrl = data.secure_url.replace('/upload/', '/upload/a_auto_right,c_fill,ar_9:16/')
+      }
+
+      return { url: videoUrl, duration: data.duration }
+    } catch (error) {
+      console.error('Upload error:', error)
+      if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
+        throw new Error('Koneksi gagal. Periksa internet Anda atau coba lagi.')
+      }
+      throw error
     }
-
-    return { url: videoUrl, duration: data.duration }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -201,8 +213,8 @@ export function RateSection({ campaign, business, recordedVideo }: RateSectionPr
             <motion.button type="submit" disabled={isSubmitting || !name || productRating === 0 || appRating === 0}
               whileHover={{ scale: isSubmitting ? 1 : 1.02 }} whileTap={{ scale: isSubmitting ? 1 : 0.98 }}
               className={`w-full py-4 rounded-xl flex items-center justify-center gap-2 font-medium ${isSubmitting || !name || productRating === 0 || appRating === 0
-                  ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                  : 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-lg'}`}>
+                ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                : 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-lg'}`}>
               {isSubmitting ? <><Loader2 className="w-5 h-5 animate-spin" /> Mengirim...</>
                 : <><Send className="w-5 h-5" /> Kirim Testimonial</>}
             </motion.button>
