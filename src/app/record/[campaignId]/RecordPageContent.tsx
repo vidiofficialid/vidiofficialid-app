@@ -301,6 +301,7 @@ export function RecordPageContent({ campaign, business }: RecordPageContentProps
                 transcript: campaign.testimonial_script || 'Ceritakan pengalaman Anda dengan produk/layanan kami...',
                 gestureGuide: campaign.gesture_guide || '',
               }}
+              campaignId={campaign.id}
               customScript={customScript.trim() || undefined}
               onRecordingComplete={handleRecordingComplete}
               deviceInfo={{ device: selectedDevice, os: selectedOS }}

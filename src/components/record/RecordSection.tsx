@@ -9,14 +9,53 @@ interface RecordSectionProps {
     transcript: string
     gestureGuide?: string
   }
+  campaignId?: string
   customScript?: string
   onRecordingComplete: (videoBlob: Blob) => void
   deviceInfo: { device: string; os: string } | null
 }
 
 type RecordingState = 'idle' | 'countdown' | 'recording' | 'preview'
+type LogEventType = 'info' | 'warning' | 'error'
+type LogStage = 'camera_init' | 'recording' | 'preview' | 'upload'
 
-export function RecordSection({ campaignData, customScript, onRecordingComplete, deviceInfo }: RecordSectionProps) {
+// Helper function to log events to server
+const logRecordingEvent = async (
+  campaignId: string | undefined,
+  stage: LogStage,
+  eventType: LogEventType,
+  message: string,
+  additionalData?: Record<string, unknown>
+) => {
+  const browserInfo = {
+    userAgent: navigator.userAgent,
+    platform: navigator.platform,
+    language: navigator.language,
+    online: navigator.onLine,
+    screenWidth: window.screen.width,
+    screenHeight: window.screen.height,
+    orientation: screen.orientation?.type || 'unknown',
+  }
+
+  try {
+    await fetch('/api/recording-logs', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        campaign_id: campaignId,
+        stage,
+        event_type: eventType,
+        error_message: message,
+        browser_info: browserInfo,
+        additional_data: additionalData,
+      }),
+    })
+  } catch (e) {
+    console.error('Failed to send log:', e)
+  }
+}
+
+export function RecordSection({ campaignData, campaignId, customScript, onRecordingComplete, deviceInfo }: RecordSectionProps) {
   const [recordingState, setRecordingState] = useState<RecordingState>('idle')
   const [countdown, setCountdown] = useState(3)
   const [recordingTime, setRecordingTime] = useState(0)
@@ -40,50 +79,100 @@ export function RecordSection({ campaignData, customScript, onRecordingComplete,
 
     const getCameraAccess = async () => {
       try {
-        if (typeof window === 'undefined' || !window.MediaRecorder) {
-          setCameraError('Browser Anda tidak mendukung perekaman video.')
+        // Check browser support
+        if (typeof window === 'undefined') {
+          logRecordingEvent(campaignId, 'camera_init', 'error', 'Window undefined - SSR context')
           return
         }
 
-        // Force portrait mode - swap width/height for 9:16 ratio on mobile
-        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          const msg = 'Browser tidak mendukung getUserMedia'
+          logRecordingEvent(campaignId, 'camera_init', 'error', msg)
+          setCameraError(msg)
+          return
+        }
 
-        const constraints = {
+        if (!window.MediaRecorder) {
+          const msg = 'Browser tidak mendukung MediaRecorder'
+          logRecordingEvent(campaignId, 'camera_init', 'error', msg)
+          setCameraError(msg)
+          return
+        }
+
+        logRecordingEvent(campaignId, 'camera_init', 'info', 'Requesting camera access')
+
+        // Simple constraints for maximum compatibility
+        const constraints: MediaStreamConstraints = {
           video: {
-            // For portrait: height should be larger than width
-            width: isMobile ? { ideal: 720, max: 1080 } : { ideal: 720 },
-            height: isMobile ? { ideal: 1280, max: 1920 } : { ideal: 1280 },
             facingMode: 'user',
-            aspectRatio: isMobile ? { ideal: 9 / 16 } : undefined,
+            width: { ideal: 720 },
+            height: { ideal: 1280 },
           },
           audio: true,
         }
 
         const mediaStream = await navigator.mediaDevices.getUserMedia(constraints)
 
+        // Log successful stream acquisition
+        const videoTrack = mediaStream.getVideoTracks()[0]
+        const settings = videoTrack?.getSettings()
+        logRecordingEvent(campaignId, 'camera_init', 'info', 'Camera stream acquired', {
+          videoWidth: settings?.width,
+          videoHeight: settings?.height,
+          facingMode: settings?.facingMode,
+          deviceId: settings?.deviceId,
+          trackLabel: videoTrack?.label,
+        })
+
         if (mounted) {
           setStream(mediaStream)
           if (videoRef.current) {
             videoRef.current.srcObject = mediaStream
 
-            // Detect if video is landscape after metadata loads
+            // Log when video metadata loads
             videoRef.current.onloadedmetadata = () => {
               const video = videoRef.current
               if (video) {
                 const isLandscapeVideo = video.videoWidth > video.videoHeight
                 setIsLandscape(isLandscapeVideo)
-                console.log(`Video dimensions: ${video.videoWidth}x${video.videoHeight}, landscape: ${isLandscapeVideo}`)
+                logRecordingEvent(campaignId, 'camera_init', 'info', 'Video metadata loaded', {
+                  videoWidth: video.videoWidth,
+                  videoHeight: video.videoHeight,
+                  isLandscape: isLandscapeVideo,
+                })
               }
+            }
+
+            // Log if video fails to play
+            videoRef.current.onerror = (e) => {
+              logRecordingEvent(campaignId, 'camera_init', 'error', 'Video element error', {
+                error: String(e),
+              })
             }
           }
         } else {
           mediaStream.getTracks().forEach(track => track.stop())
         }
       } catch (err) {
-        if (mounted && err instanceof Error) {
-          setCameraError(err.name === 'NotAllowedError'
-            ? 'Izin kamera ditolak.'
-            : 'Tidak dapat mengakses kamera.')
+        const errorMessage = err instanceof Error ? err.message : 'Unknown error'
+        const errorName = err instanceof Error ? err.name : 'UnknownError'
+
+        logRecordingEvent(campaignId, 'camera_init', 'error', `Camera access failed: ${errorName}`, {
+          errorMessage,
+          errorName,
+          errorStack: err instanceof Error ? err.stack : undefined,
+        })
+
+        if (mounted) {
+          if (errorName === 'NotAllowedError') {
+            setCameraError('Izin kamera ditolak. Silakan izinkan akses kamera.')
+          } else if (errorName === 'NotFoundError') {
+            setCameraError('Kamera tidak ditemukan.')
+          } else if (errorName === 'NotReadableError') {
+            setCameraError('Kamera sedang digunakan aplikasi lain.')
+          } else {
+            setCameraError(`Tidak dapat mengakses kamera: ${errorMessage}`)
+          }
         }
       }
     }
@@ -95,7 +184,7 @@ export function RecordSection({ campaignData, customScript, onRecordingComplete,
       if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current)
       if (recordingTimerRef.current) clearInterval(recordingTimerRef.current)
     }
-  }, [])
+  }, [campaignId])
 
   useEffect(() => {
     return () => {
@@ -128,17 +217,26 @@ export function RecordSection({ campaignData, customScript, onRecordingComplete,
   }, [recordingState, recordedBlob])
 
   const startRecording = useCallback(() => {
-    if (!stream) return
+    if (!stream) {
+      logRecordingEvent(campaignId, 'recording', 'error', 'No stream available for recording')
+      return
+    }
 
     chunksRef.current = []
     const mimeTypes = ['video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm', 'video/mp4']
     let selectedMimeType = mimeTypes.find(m => MediaRecorder.isTypeSupported(m)) || ''
 
     if (!selectedMimeType) {
+      logRecordingEvent(campaignId, 'recording', 'error', 'No supported MIME type found', {
+        testedMimeTypes: mimeTypes,
+      })
       setCameraError('Browser tidak mendukung format perekaman.')
       return
     }
 
+    logRecordingEvent(campaignId, 'recording', 'info', 'Starting recording', {
+      selectedMimeType,
+    })
     mimeTypeRef.current = selectedMimeType
 
     try {
