@@ -71,6 +71,7 @@ export function RecordSection({ campaignData, campaignId, customScript, onRecord
   const isIOS = typeof navigator !== 'undefined' && /iPhone|iPad|iPod/i.test(navigator.userAgent)
 
   const videoRef = useRef<HTMLVideoElement>(null)
+  const canvasRef = useRef<HTMLCanvasElement>(null)
   const previewVideoRef = useRef<HTMLVideoElement>(null)
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const chunksRef = useRef<Blob[]>([])
@@ -78,6 +79,7 @@ export function RecordSection({ campaignData, campaignId, customScript, onRecord
   const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null)
   const mimeTypeRef = useRef<string>('')
   const streamDimensionsRef = useRef<{ width: number; height: number } | null>(null)
+  const animationFrameRef = useRef<number | null>(null)
 
   useEffect(() => {
     let mounted = true
@@ -236,6 +238,62 @@ export function RecordSection({ campaignData, campaignId, customScript, onRecord
       videoRef.current.srcObject = stream
     }
   }, [stream, recordingState])
+
+  // Canvas drawing for rotated preview (fixes iOS landscape issue)
+  useEffect(() => {
+    const video = videoRef.current
+    const canvas = canvasRef.current
+
+    if (!video || !canvas || !stream || recordingState === 'preview' || !needsRotation) {
+      // Cancel any existing animation frame
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current)
+        animationFrameRef.current = null
+      }
+      return
+    }
+
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+
+    const drawFrame = () => {
+      if (video.readyState >= 2) { // HAVE_CURRENT_DATA
+        // Video is landscape (width > height), we need to rotate to portrait
+        if (video.videoWidth > video.videoHeight) {
+          // Set canvas to portrait dimensions (swap width/height)
+          canvas.width = video.videoHeight
+          canvas.height = video.videoWidth
+
+          // Save context, rotate, draw, restore
+          ctx.save()
+          ctx.translate(canvas.width / 2, canvas.height / 2)
+          ctx.rotate(-90 * Math.PI / 180)
+          // Mirror horizontally for front camera
+          ctx.scale(-1, 1)
+          ctx.drawImage(video, -video.videoWidth / 2, -video.videoHeight / 2)
+          ctx.restore()
+        } else {
+          // Normal portrait - just mirror
+          canvas.width = video.videoWidth
+          canvas.height = video.videoHeight
+          ctx.save()
+          ctx.scale(-1, 1)
+          ctx.drawImage(video, -video.videoWidth, 0)
+          ctx.restore()
+        }
+      }
+      animationFrameRef.current = requestAnimationFrame(drawFrame)
+    }
+
+    drawFrame()
+
+    return () => {
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current)
+        animationFrameRef.current = null
+      }
+    }
+  }, [stream, recordingState, needsRotation])
 
   useEffect(() => {
     if (recordingState === 'preview' && recordedBlob) {
@@ -421,13 +479,24 @@ export function RecordSection({ campaignData, campaignId, customScript, onRecord
           )}
 
           {(recordingState === 'idle' || recordingState === 'countdown' || recordingState === 'recording') && !cameraError && (
-            <video
-              ref={videoRef}
-              autoPlay
-              playsInline
-              muted
-              className="w-full h-full object-cover scale-x-[-1]"
-            />
+            <>
+              {/* Hidden video element - source for canvas when rotation needed */}
+              <video
+                ref={videoRef}
+                autoPlay
+                playsInline
+                muted
+                className="w-full h-full object-cover scale-x-[-1]"
+                style={{ display: needsRotation ? 'none' : 'block' }}
+              />
+              {/* Canvas for rotated preview (iOS landscape fix) */}
+              {needsRotation && (
+                <canvas
+                  ref={canvasRef}
+                  className="w-full h-full object-cover"
+                />
+              )}
+            </>
           )}
 
           {recordingState === 'preview' && (
