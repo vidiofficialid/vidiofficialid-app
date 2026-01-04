@@ -69,6 +69,7 @@ const nextConfig: NextConfig = {
               "base-uri 'self'",
               "form-action 'self'",
               "media-src 'self' blob: https://res.cloudinary.com",
+              "object-src 'none'",
             ].join("; "),
           },
           {
