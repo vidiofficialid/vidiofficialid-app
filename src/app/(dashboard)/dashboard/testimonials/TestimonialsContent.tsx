@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
@@ -35,6 +35,12 @@ export function TestimonialsContent({
   const [showRejectModal, setShowRejectModal] = useState<string | null>(null)
   const [isProcessing, setIsProcessing] = useState<string | null>(null)
   const [showInfoModal, setShowInfoModal] = useState(false)
+  const [isMounted, setIsMounted] = useState(false)
+
+  // Prevent hydration mismatch by only showing date-dependent content after mount
+  useEffect(() => {
+    setIsMounted(true)
+  }, [])
 
   const getCampaign = (campaignId: string) => campaigns.find(c => c.id === campaignId)
   const getBusiness = (businessId: string) => businesses.find(b => b.id === businessId)
@@ -136,8 +142,8 @@ export function TestimonialsContent({
   }
 
   const getStatusBadge = (testimonial: Testimonial) => {
-    const daysRemaining = getDaysRemaining(testimonial.expires_at)
-    const daysSinceCreated = getDaysSinceCreated(testimonial.created_at)
+    const daysRemaining = isMounted ? getDaysRemaining(testimonial.expires_at) : null
+    const daysSinceCreated = isMounted ? getDaysSinceCreated(testimonial.created_at) : 0
     const pendingDaysLeft = 10 - daysSinceCreated
 
     switch (testimonial.status) {
@@ -148,7 +154,7 @@ export function TestimonialsContent({
               <CheckCircle className="w-3 h-3" />
               Approved
             </span>
-            {daysRemaining !== null && daysRemaining > 0 && (
+            {isMounted && daysRemaining !== null && daysRemaining > 0 && (
               <span className="text-xs text-green-600">
                 {daysRemaining} hari tersisa untuk download
               </span>
@@ -162,7 +168,7 @@ export function TestimonialsContent({
               <XCircle className="w-3 h-3" />
               Rejected
             </span>
-            {daysRemaining !== null && daysRemaining > 0 && (
+            {isMounted && daysRemaining !== null && daysRemaining > 0 && (
               <span className="text-xs text-red-600">
                 Dihapus dalam {daysRemaining} hari
               </span>
@@ -183,7 +189,7 @@ export function TestimonialsContent({
               <Clock className="w-3 h-3" />
               Pending
             </span>
-            {pendingDaysLeft > 0 ? (
+            {isMounted && (pendingDaysLeft > 0 ? (
               <span className="text-xs text-yellow-600">
                 {pendingDaysLeft} hari untuk review
               </span>
@@ -191,7 +197,7 @@ export function TestimonialsContent({
               <span className="text-xs text-red-600">
                 Akan dihapus otomatis
               </span>
-            )}
+            ))}
           </div>
         )
     }
@@ -351,9 +357,9 @@ export function TestimonialsContent({
                       </div>
 
                       <p className="text-xs text-gray-400 mt-2">
-                        {new Date(testimonial.recorded_at).toLocaleDateString('id-ID', {
+                        {isMounted ? new Date(testimonial.recorded_at).toLocaleDateString('id-ID', {
                           day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
-                        })}
+                        }) : '...'}
                       </p>
 
                       <div className="mt-3 flex flex-wrap gap-2">
