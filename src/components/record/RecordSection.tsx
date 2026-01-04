@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Circle, Square, Play, RotateCcw, Check, Camera, AlertCircle } from 'lucide-react'
+import { Circle, Square, Play, RotateCcw, Check, Camera, AlertCircle, Smartphone } from 'lucide-react'
 
 interface RecordSectionProps {
   campaignData: {
@@ -25,6 +25,7 @@ export function RecordSection({ campaignData, customScript, onRecordingComplete,
   const [cameraError, setCameraError] = useState<string | null>(null)
   const [recordedBlob, setRecordedBlob] = useState<Blob | null>(null)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  const [isLandscape, setIsLandscape] = useState(false)
 
   const videoRef = useRef<HTMLVideoElement>(null)
   const previewVideoRef = useRef<HTMLVideoElement>(null)
@@ -64,6 +65,16 @@ export function RecordSection({ campaignData, customScript, onRecordingComplete,
           setStream(mediaStream)
           if (videoRef.current) {
             videoRef.current.srcObject = mediaStream
+
+            // Detect if video is landscape after metadata loads
+            videoRef.current.onloadedmetadata = () => {
+              const video = videoRef.current
+              if (video) {
+                const isLandscapeVideo = video.videoWidth > video.videoHeight
+                setIsLandscape(isLandscapeVideo)
+                console.log(`Video dimensions: ${video.videoWidth}x${video.videoHeight}, landscape: ${isLandscapeVideo}`)
+              }
+            }
           }
         } else {
           mediaStream.getTracks().forEach(track => track.stop())
@@ -229,6 +240,38 @@ export function RecordSection({ campaignData, customScript, onRecordingComplete,
           {recordingState === 'preview' && (
             <video ref={previewVideoRef} playsInline className="w-full h-full object-cover" />
           )}
+
+          {/* Landscape Warning Overlay */}
+          <AnimatePresence>
+            {isLandscape && recordingState === 'idle' && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="absolute inset-0 bg-black/80 flex flex-col items-center justify-center z-30 p-6"
+              >
+                <motion.div
+                  animate={{ rotate: [0, -90, 0] }}
+                  transition={{ repeat: Infinity, duration: 2, ease: 'easeInOut' }}
+                  className="mb-4"
+                >
+                  <Smartphone className="w-16 h-16 text-orange-400" />
+                </motion.div>
+                <h3 className="text-white font-bold text-lg mb-2 text-center">
+                  Putar HP Anda
+                </h3>
+                <p className="text-white/80 text-sm text-center">
+                  Pegang HP secara vertikal (portrait) untuk hasil video yang lebih baik
+                </p>
+                <button
+                  onClick={() => setIsLandscape(false)}
+                  className="mt-4 px-6 py-2 bg-orange-500 text-white rounded-full text-sm font-medium"
+                >
+                  Lanjutkan Tetap
+                </button>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           {/* Script Overlay - Moved to Top */}
           {(recordingState === 'idle' || recordingState === 'countdown' || recordingState === 'recording') && (
