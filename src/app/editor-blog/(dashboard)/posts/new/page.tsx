@@ -101,6 +101,42 @@ export default function NewPostPage() {
             </p>
           </div>
 
+          {/* SEO Section */}
+          <div className="border-t pt-6 mt-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+              🔍 Optimasi SEO
+            </h3>
+
+            {/* Focus Keyword */}
+            <div className="space-y-2 mb-4">
+              <Label htmlFor="focus_keyword">Focus Keyword</Label>
+              <Input
+                id="focus_keyword"
+                name="focus_keyword"
+                placeholder="Contoh: video testimonial produk"
+              />
+              <p className="text-sm text-gray-500">
+                Kata kunci utama yang ingin Anda targetkan untuk artikel ini
+              </p>
+            </div>
+
+            {/* Meta Description */}
+            <div className="space-y-2">
+              <Label htmlFor="meta_description">Meta Description</Label>
+              <textarea
+                id="meta_description"
+                name="meta_description"
+                rows={3}
+                maxLength={160}
+                placeholder="Deskripsi singkat artikel untuk hasil pencarian Google (maks 160 karakter)"
+                className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-amber-400 focus:border-amber-400 outline-none transition-all resize-none"
+              />
+              <p className="text-sm text-gray-500">
+                Deskripsi ini akan muncul di hasil pencarian Google. Maksimal 160 karakter.
+              </p>
+            </div>
+          </div>
+
           {/* Publish Status */}
           <div className="flex items-center gap-3">
             <input

@@ -222,6 +222,13 @@ export default function RootLayout({
                 price: '0',
                 priceCurrency: 'IDR',
               },
+              aggregateRating: {
+                '@type': 'AggregateRating',
+                ratingValue: '5',
+                ratingCount: '10',
+                bestRating: '5',
+                worstRating: '1',
+              },
               description:
                 'Aplikasi web untuk mengumpulkan video testimonial pelanggan. Tanpa download, langsung akses via browser.',
             }),

@@ -227,6 +227,8 @@ export interface Database {
           excerpt: string | null
           content: string | null
           image: string | null
+          meta_description: string | null
+          focus_keyword: string | null
           published: boolean
           published_at: string | null
           author_id: string | null
@@ -240,6 +242,8 @@ export interface Database {
           excerpt?: string | null
           content?: string | null
           image?: string | null
+          meta_description?: string | null
+          focus_keyword?: string | null
           published?: boolean
           published_at?: string | null
           author_id?: string | null
@@ -253,6 +257,8 @@ export interface Database {
           excerpt?: string | null
           content?: string | null
           image?: string | null
+          meta_description?: string | null
+          focus_keyword?: string | null
           published?: boolean
           published_at?: string | null
           author_id?: string | null

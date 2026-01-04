@@ -28,8 +28,18 @@ export async function createPost(formData: FormData) {
   const content = formData.get('content') as string
   const image = formData.get('image') as string
   const published = formData.get('published') === 'true'
+  const focusKeyword = formData.get('focus_keyword') as string
+  const metaDescription = formData.get('meta_description') as string
 
   const slug = generateSlug(title)
+
+  // Auto-generate meta_description if empty
+  const autoMetaDescription = metaDescription ||
+    (excerpt ? excerpt.substring(0, 160) :
+      (content ? content.replace(/[#*_`\[\]]/g, '').substring(0, 160) : ''))
+
+  // Auto-generate focus_keyword if empty (use first few words of title)
+  const autoFocusKeyword = focusKeyword || title.toLowerCase().split(' ').slice(0, 4).join(' ')
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error } = await (supabase as any).from('blog_posts').insert({
@@ -41,6 +51,8 @@ export async function createPost(formData: FormData) {
     published,
     published_at: published ? new Date().toISOString() : null,
     author_id: user.id,
+    meta_description: autoMetaDescription || null,
+    focus_keyword: autoFocusKeyword || null,
   })
 
   if (error) {
@@ -62,8 +74,18 @@ export async function updatePost(postId: string, formData: FormData) {
   const content = formData.get('content') as string
   const image = formData.get('image') as string
   const published = formData.get('published') === 'true'
+  const focusKeyword = formData.get('focus_keyword') as string
+  const metaDescription = formData.get('meta_description') as string
 
   const slug = generateSlug(title)
+
+  // Auto-generate meta_description if empty
+  const autoMetaDescription = metaDescription ||
+    (excerpt ? excerpt.substring(0, 160) :
+      (content ? content.replace(/[#*_`\[\]]/g, '').substring(0, 160) : ''))
+
+  // Auto-generate focus_keyword if empty
+  const autoFocusKeyword = focusKeyword || title.toLowerCase().split(' ').slice(0, 4).join(' ')
 
   // Check if already published to preserve original publish date
   const { data: existingData } = await supabase
@@ -90,6 +112,8 @@ export async function updatePost(postId: string, formData: FormData) {
       published,
       published_at: publishedAt,
       updated_at: new Date().toISOString(),
+      meta_description: autoMetaDescription || null,
+      focus_keyword: autoFocusKeyword || null,
     })
     .eq('id', postId)
 

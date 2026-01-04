@@ -32,13 +32,28 @@ export async function generateMetadata({
     }
   }
 
+  // Use meta_description if available, fallback to excerpt
+  const description = post.meta_description || post.excerpt || undefined
+
+  // Build keywords array from focus_keyword
+  const keywords = post.focus_keyword
+    ? [post.focus_keyword, 'video testimonial', 'UMKM Indonesia', 'VidiOfficialID']
+    : ['video testimonial', 'UMKM Indonesia', 'VidiOfficialID']
+
   return {
     title: `${post.title} - VidiOfficial Blog`,
-    description: post.excerpt || undefined,
+    description,
+    keywords,
     openGraph: {
       title: post.title,
-      description: post.excerpt || undefined,
+      description,
       images: post.image ? [post.image] : undefined,
+      type: 'article',
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: post.title,
+      description,
     },
   }
 }
