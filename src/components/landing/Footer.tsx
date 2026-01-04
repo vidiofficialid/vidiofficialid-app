@@ -85,6 +85,15 @@ export function Footer() {
                 </svg>
               </a>
             </div>
+
+            {/* TrustedSite Badge */}
+            <div className="mt-4">
+              <div
+                className="trustedsite-trustmark"
+                data-type="1002"
+                data-height="150"
+              />
+            </div>
           </div>
 
           {/* Support Us Column */}
@@ -167,13 +176,6 @@ export function Footer() {
           <p className="text-gray-600 text-sm">
             © {new Date().getFullYear()} VidiOfficialID. All rights reserved.
           </p>
-
-          {/* TrustedSite Badge */}
-          <div
-            className="trustedsite-trustmark"
-            data-type="1002"
-            data-height="150"
-          />
 
           <div className="flex gap-6 text-sm">
             <Link
