@@ -15,6 +15,9 @@ export async function generateMetadata(): Promise<Metadata> {
   let title = defaultTitle
   let description = defaultDesc
   let keywords = [
+    'membuat video testimonial produk',
+    'cara membuat video testimonial',
+    'video testimonial produk',
     'layanan video testimonial',
     'video testimonial',
     'social proof produk / jasa',
