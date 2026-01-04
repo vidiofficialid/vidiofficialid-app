@@ -58,12 +58,19 @@ export function Navbar() {
           {/* Desktop CTA */}
           <div className="hidden md:flex items-center gap-4">
             <Link href="/login" onClick={handleLoginClick}>
-              <Button variant="ghost" className="text-gray-900 hover:text-amber-400">
+              <Button
+                variant="ghost"
+                className="text-gray-900 hover:text-amber-400 min-h-[44px] min-w-[44px]"
+                aria-label="Login to your account"
+              >
                 Login
               </Button>
             </Link>
             <Link href="/register" onClick={handleSignupClick}>
-              <Button className="bg-gray-900 text-white px-6 py-3 hover:bg-amber-400 hover:text-gray-900 shadow-lg">
+              <Button
+                className="bg-gray-900 text-white px-6 py-3 hover:bg-amber-400 hover:text-gray-900 shadow-lg min-h-[44px]"
+                aria-label="Get Started - Create your account"
+              >
                 Get Started
               </Button>
             </Link>

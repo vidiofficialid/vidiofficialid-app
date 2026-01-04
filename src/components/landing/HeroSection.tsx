@@ -44,7 +44,10 @@ export function HeroSection() {
 
             <div className="flex flex-wrap gap-4">
               <Link href="/register" onClick={handleGetStartedClick}>
-                <Button className="group bg-gray-900 text-white px-8 py-4 h-auto hover:bg-gray-800 shadow-lg hover:shadow-xl">
+                <Button
+                  className="group bg-gray-900 text-white px-8 py-4 h-auto hover:bg-gray-800 shadow-lg hover:shadow-xl"
+                  aria-label="Get Started - Create your account"
+                >
                   Get Started
                   <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
                 </Button>
@@ -52,6 +55,7 @@ export function HeroSection() {
               <Button
                 variant="outline"
                 className="bg-white text-gray-900 px-8 py-4 h-auto hover:bg-gray-50 shadow-md hover:shadow-lg border-2 border-gray-200"
+                aria-label="See How It Works - Watch demo video"
               >
                 <Play className="w-5 h-5" />
                 See How It Works
