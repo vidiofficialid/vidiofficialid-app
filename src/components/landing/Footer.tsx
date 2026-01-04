@@ -91,8 +91,8 @@ export function Footer() {
               <div
                 className="trustedsite-trustmark"
                 data-type="202"
-                data-width="120"
-                data-height="50"
+                data-width="153"
+                data-height="63"
               />
             </div>
           </div>
