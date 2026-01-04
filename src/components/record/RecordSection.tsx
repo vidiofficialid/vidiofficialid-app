@@ -43,12 +43,12 @@ export function RecordSection({ campaignData, onRecordingComplete, deviceInfo }:
           return
         }
 
+        // Less aggressive constraints for better iOS compatibility
         const constraints = {
           video: {
-            width: { ideal: 720 },
-            height: { ideal: 1280 },
+            width: { ideal: 480, max: 720 },
+            height: { ideal: 854, max: 1280 },
             facingMode: 'user',
-            aspectRatio: { ideal: 0.5625 } // Force 9:16 aspect ratio
           },
           audio: true,
         }
