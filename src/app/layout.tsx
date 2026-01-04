@@ -250,6 +250,80 @@ export default function RootLayout({
             }),
           }}
         />
+        {/* Structured Data - WebSite with SearchAction and Sitelinks */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              '@context': 'https://schema.org',
+              '@type': 'WebSite',
+              name: 'VidiOfficialID',
+              url: 'https://vidi.official.id',
+              description: 'Platform video testimonial untuk UMKM Indonesia',
+              potentialAction: {
+                '@type': 'SearchAction',
+                target: {
+                  '@type': 'EntryPoint',
+                  urlTemplate: 'https://vidi.official.id/blog?q={search_term_string}',
+                },
+                'query-input': 'required name=search_term_string',
+              },
+            }),
+          }}
+        />
+        {/* Structured Data - SiteNavigationElement for Sitelinks */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              '@context': 'https://schema.org',
+              '@graph': [
+                {
+                  '@type': 'SiteNavigationElement',
+                  '@id': 'https://vidi.official.id/#navigation',
+                  name: 'Cara Kerja',
+                  description: 'Pelajari bagaimana VidiOfficialID membantu mengumpulkan video testimonial',
+                  url: 'https://vidi.official.id/#how-it-works',
+                },
+                {
+                  '@type': 'SiteNavigationElement',
+                  '@id': 'https://vidi.official.id/#navigation-blog',
+                  name: 'Blog',
+                  description: 'Tips dan panduan video testimonial untuk UMKM Indonesia',
+                  url: 'https://vidi.official.id/blog',
+                },
+                {
+                  '@type': 'SiteNavigationElement',
+                  '@id': 'https://vidi.official.id/#navigation-about',
+                  name: 'Tentang Kami',
+                  description: 'Tentang VidiOfficialID - Platform video testimonial Indonesia',
+                  url: 'https://vidi.official.id/about',
+                },
+                {
+                  '@type': 'SiteNavigationElement',
+                  '@id': 'https://vidi.official.id/#navigation-contact',
+                  name: 'Hubungi Kami',
+                  description: 'Hubungi tim VidiOfficialID untuk pertanyaan dan bantuan',
+                  url: 'https://vidi.official.id/contact-us',
+                },
+                {
+                  '@type': 'SiteNavigationElement',
+                  '@id': 'https://vidi.official.id/#navigation-video-testimonial',
+                  name: 'Membuat Video Testimonial',
+                  description: 'Panduan lengkap cara membuat video testimonial produk',
+                  url: 'https://vidi.official.id/membuat-video-testimonial-produk',
+                },
+                {
+                  '@type': 'SiteNavigationElement',
+                  '@id': 'https://vidi.official.id/#navigation-register',
+                  name: 'Daftar Gratis',
+                  description: 'Daftar gratis untuk mulai mengumpulkan video testimonial',
+                  url: 'https://vidi.official.id/register',
+                },
+              ],
+            }),
+          }}
+        />
       </head>
       <body className="font-sans antialiased">
         <GoogleAnalytics />
