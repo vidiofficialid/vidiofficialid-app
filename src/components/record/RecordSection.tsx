@@ -65,6 +65,10 @@ export function RecordSection({ campaignData, campaignId, customScript, onRecord
   const [recordedBlob, setRecordedBlob] = useState<Blob | null>(null)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [isLandscape, setIsLandscape] = useState(false)
+  const [needsRotation, setNeedsRotation] = useState(false)
+
+  // Detect iOS
+  const isIOS = typeof navigator !== 'undefined' && /iPhone|iPad|iPod/i.test(navigator.userAgent)
 
   const videoRef = useRef<HTMLVideoElement>(null)
   const previewVideoRef = useRef<HTMLVideoElement>(null)
@@ -73,6 +77,7 @@ export function RecordSection({ campaignData, campaignId, customScript, onRecord
   const recordingTimerRef = useRef<NodeJS.Timeout | null>(null)
   const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null)
   const mimeTypeRef = useRef<string>('')
+  const streamDimensionsRef = useRef<{ width: number; height: number } | null>(null)
 
   useEffect(() => {
     let mounted = true
@@ -113,9 +118,15 @@ export function RecordSection({ campaignData, campaignId, customScript, onRecord
 
         const mediaStream = await navigator.mediaDevices.getUserMedia(constraints)
 
-        // Log successful stream acquisition
+        // Log successful stream acquisition and save original dimensions
         const videoTrack = mediaStream.getVideoTracks()[0]
         const settings = videoTrack?.getSettings()
+
+        // Save stream dimensions to compare with video element dimensions
+        if (settings?.width && settings?.height) {
+          streamDimensionsRef.current = { width: settings.width, height: settings.height }
+        }
+
         logRecordingEvent(campaignId, 'camera_init', 'info', 'Camera stream acquired', {
           videoWidth: settings?.width,
           videoHeight: settings?.height,
@@ -129,16 +140,38 @@ export function RecordSection({ campaignData, campaignId, customScript, onRecord
           if (videoRef.current) {
             videoRef.current.srcObject = mediaStream
 
-            // Log when video metadata loads
+            // Log when video metadata loads and detect iOS dimension swap
             videoRef.current.onloadedmetadata = () => {
               const video = videoRef.current
               if (video) {
                 const isLandscapeVideo = video.videoWidth > video.videoHeight
                 setIsLandscape(isLandscapeVideo)
+
+                // Detect iOS Safari dimension swap (stream is portrait but video renders landscape)
+                const streamDims = streamDimensionsRef.current
+                if (streamDims && isIOS) {
+                  const streamIsPortrait = streamDims.height > streamDims.width
+                  const videoIsLandscape = video.videoWidth > video.videoHeight
+
+                  // If stream was portrait but video is landscape, iOS swapped the dimensions
+                  if (streamIsPortrait && videoIsLandscape) {
+                    setNeedsRotation(true)
+                    logRecordingEvent(campaignId, 'camera_init', 'warning', 'iOS dimension swap detected - applying rotation', {
+                      streamWidth: streamDims.width,
+                      streamHeight: streamDims.height,
+                      videoWidth: video.videoWidth,
+                      videoHeight: video.videoHeight,
+                    })
+                  }
+                }
+
                 logRecordingEvent(campaignId, 'camera_init', 'info', 'Video metadata loaded', {
                   videoWidth: video.videoWidth,
                   videoHeight: video.videoHeight,
                   isLandscape: isLandscapeVideo,
+                  needsRotation: streamDimensionsRef.current && isIOS &&
+                    (streamDimensionsRef.current.height > streamDimensionsRef.current.width) &&
+                    (video.videoWidth > video.videoHeight),
                 })
               }
             }
@@ -388,7 +421,27 @@ export function RecordSection({ campaignData, campaignId, customScript, onRecord
           )}
 
           {(recordingState === 'idle' || recordingState === 'countdown' || recordingState === 'recording') && !cameraError && (
-            <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover scale-x-[-1]" />
+            <video
+              ref={videoRef}
+              autoPlay
+              playsInline
+              muted
+              className="w-full h-full object-cover"
+              style={{
+                transform: needsRotation
+                  ? 'rotate(-90deg) scaleX(-1)'
+                  : 'scaleX(-1)',
+                transformOrigin: 'center center',
+                // Swap width/height when rotated
+                width: needsRotation ? '177.78%' : '100%', // 16/9 ratio adjustment
+                height: needsRotation ? '56.25%' : '100%',
+                position: needsRotation ? 'absolute' : 'relative',
+                top: needsRotation ? '50%' : 'auto',
+                left: needsRotation ? '50%' : 'auto',
+                marginTop: needsRotation ? '-28.125%' : '0',
+                marginLeft: needsRotation ? '-88.89%' : '0',
+              }}
+            />
           )}
 
           {recordingState === 'preview' && (
