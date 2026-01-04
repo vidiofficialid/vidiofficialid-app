@@ -90,8 +90,9 @@ export function Footer() {
             <div className="mt-4">
               <div
                 className="trustedsite-trustmark"
-                data-type="1002"
-                data-height="150"
+                data-type="202"
+                data-width="120"
+                data-height="50"
               />
             </div>
           </div>
