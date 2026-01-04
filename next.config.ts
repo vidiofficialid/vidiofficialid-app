@@ -46,9 +46,9 @@ const nextConfig: NextConfig = {
             value: "strict-origin-when-cross-origin",
           },
           {
-            // Restricts browser features
+            // Restricts browser features - ALLOW camera/mic for self (needed for recording)
             key: "Permissions-Policy",
-            value: "camera=(), microphone=(), geolocation=(), interest-cohort=()",
+            value: "camera=(self), microphone=(self), geolocation=(), interest-cohort=()",
           },
           {
             // HTTP Strict Transport Security (HSTS)
