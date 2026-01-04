@@ -171,9 +171,8 @@ export function Footer() {
           {/* TrustedSite Badge */}
           <div
             className="trustedsite-trustmark"
-            data-type="202"
-            data-width="120"
-            data-height="50"
+            data-type="1002"
+            data-height="150"
           />
 
           <div className="flex gap-6 text-sm">
