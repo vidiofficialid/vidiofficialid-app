@@ -29,8 +29,8 @@ export function RateSection({ campaign, business, recordedVideo }: RateSectionPr
     formData.append('file', blob, 'testimonial.webm')
     formData.append('upload_preset', uploadPreset)
     formData.append('folder', 'vidi-testimonials')
-    // Auto-rotate video based on metadata and force portrait orientation
-    formData.append('eager', 'a_auto_right,c_fill,ar_9:16')
+    // Note: eager parameter not allowed for unsigned upload
+    // Will apply transformation via URL after upload
 
     try {
       const response = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/video/upload`, {
@@ -46,14 +46,11 @@ export function RateSection({ campaign, business, recordedVideo }: RateSectionPr
 
       const data = await response.json()
 
-      // Use eager transformation URL if available, otherwise use original with transformation
-      let videoUrl = data.secure_url
-      if (data.eager && data.eager[0]) {
-        videoUrl = data.eager[0].secure_url
-      } else {
-        // Apply transformation via URL if eager not available
-        videoUrl = data.secure_url.replace('/upload/', '/upload/a_auto_right,c_fill,ar_9:16/')
-      }
+      // Apply transformation via URL for portrait orientation
+      // a_auto_right = auto rotate based on metadata
+      // c_fill = fill mode (crop to fit)
+      // ar_9:16 = force 9:16 aspect ratio (portrait)
+      const videoUrl = data.secure_url.replace('/upload/', '/upload/a_auto_right,c_fill,ar_9:16/')
 
       return { url: videoUrl, duration: data.duration }
     } catch (error) {

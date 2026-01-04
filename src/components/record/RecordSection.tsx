@@ -156,9 +156,11 @@ export function RecordSection({ campaignData, campaignId, customScript, onRecord
                   const videoIsLandscape = video.videoWidth > video.videoHeight
 
                   // If stream was portrait but video is landscape, iOS swapped the dimensions
+                  // NOTE: Canvas rotation disabled - too complex to get right across all devices
+                  // Relying on Cloudinary transformation for final video instead
                   if (streamIsPortrait && videoIsLandscape) {
-                    setNeedsRotation(true)
-                    logRecordingEvent(campaignId, 'camera_init', 'warning', 'iOS dimension swap detected - applying rotation', {
+                    // setNeedsRotation(true) // Disabled - using Cloudinary rotation instead
+                    logRecordingEvent(campaignId, 'camera_init', 'warning', 'iOS dimension swap detected - will fix via Cloudinary', {
                       streamWidth: streamDims.width,
                       streamHeight: streamDims.height,
                       videoWidth: video.videoWidth,
