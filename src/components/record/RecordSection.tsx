@@ -331,7 +331,63 @@ export function RecordSection({ campaignData, campaignId, customScript, onRecord
     <div className="max-w-md mx-auto px-4 py-6">
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="relative">
         <div className="relative bg-gray-900 rounded-3xl overflow-hidden aspect-[9/16] shadow-2xl">
-          {(recordingState === 'idle' || recordingState === 'countdown' || recordingState === 'recording') && (
+
+          {/* Camera Error Screen - User Friendly */}
+          {cameraError && (
+            <div className="absolute inset-0 bg-gradient-to-b from-gray-800 to-gray-900 flex flex-col items-center justify-center p-6 z-40">
+              <motion.div
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mb-6"
+              >
+                <Camera className="w-10 h-10 text-red-500" />
+              </motion.div>
+
+              <h3 className="text-white font-bold text-xl mb-3 text-center">
+                Izin Kamera Diperlukan
+              </h3>
+
+              <p className="text-gray-300 text-sm text-center mb-6 leading-relaxed">
+                Untuk merekam video testimonial, Anda perlu mengizinkan akses kamera dan mikrofon.
+              </p>
+
+              {/* Visual Step Guide */}
+              <div className="bg-white/10 rounded-2xl p-4 mb-6 w-full">
+                <p className="text-orange-400 text-xs font-medium mb-3">CARA MENGIZINKAN:</p>
+                <div className="space-y-3">
+                  <div className="flex items-start gap-3">
+                    <span className="w-6 h-6 bg-orange-500 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0">1</span>
+                    <p className="text-white text-sm">Ketuk ikon 🔒 di sebelah kiri alamat website</p>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <span className="w-6 h-6 bg-orange-500 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0">2</span>
+                    <p className="text-white text-sm">Pilih <b>"Izin"</b> atau <b>"Permissions"</b></p>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <span className="w-6 h-6 bg-orange-500 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0">3</span>
+                    <p className="text-white text-sm">Ubah <b>Kamera</b> dan <b>Mikrofon</b> menjadi <b>"Izinkan"</b></p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Retry Button */}
+              <motion.button
+                whileTap={{ scale: 0.95 }}
+                onClick={() => window.location.reload()}
+                className="w-full bg-orange-500 text-white py-4 rounded-xl font-medium flex items-center justify-center gap-2"
+              >
+                <RotateCcw className="w-5 h-5" />
+                Muat Ulang Halaman
+              </motion.button>
+
+              {/* Error detail for debugging */}
+              <p className="text-gray-500 text-xs mt-4 text-center">
+                {cameraError}
+              </p>
+            </div>
+          )}
+
+          {(recordingState === 'idle' || recordingState === 'countdown' || recordingState === 'recording') && !cameraError && (
             <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover scale-x-[-1]" />
           )}
 
